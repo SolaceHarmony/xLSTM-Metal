@@ -1,6 +1,6 @@
 
 import mlx.core as mx
-from implementations.mlx.xlstm_mlx import create_xlstm_model
+from src.mlx_impl.xlstm_mlx import create_xlstm_model
 
 
 def test_batch_decode_shapes():

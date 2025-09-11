@@ -27,7 +27,7 @@ from tools.mlx_runtime import (
 
 ```
 from tools.mlx_runtime import configure_gemm, configure_qr, configure_model
-from implementations.mlx.xlstm_mlx import create_xlstm_model
+from src.mlx_impl.xlstm_mlx import create_xlstm_model
 
 # Prefer runtime config to envs
 configure_gemm(pad=True, align_execw=True, double_buffer=True)

@@ -1,6 +1,6 @@
 """Legacy import shim for xlstm_mlx (deprecated).
 
-Prefer: `from implementations.mlx.xlstm_mlx import ...`.
+Prefer: `from src.mlx_impl.xlstm_mlx import ...`.
 This shim remains for compatibility and will be removed in a future cleanup.
 """
 import warnings as _warnings
@@ -10,4 +10,4 @@ _warnings.warn(
     DeprecationWarning,
     stacklevel=2,
 )
-from implementations.mlx.xlstm_mlx import *  # noqa: F401,F403
+from src.mlx_impl.xlstm_mlx import *  # noqa: F401,F403

@@ -250,7 +250,7 @@ pip install mlx
 
 ### MLX Version
 ```python
-from implementations.mlx.xlstm_mlx import create_xlstm_model  # legacy shim: `from xlstm_mlx import ...` also works
+from src.mlx_impl.xlstm_mlx import create_xlstm_model  # legacy shim: `from xlstm_mlx import ...` also works
 
 model = create_xlstm_model(
     vocab_size=50257,
@@ -268,7 +268,7 @@ logits = model(tokens)
 
 ### PyTorch Version
 ```python
-from implementations.pytorch.xlstm_pytorch import create_xlstm_model  # legacy shim supported
+from src.pytorch.xlstm_pytorch import create_xlstm_model  # legacy shim supported
 
 model = create_xlstm_model(
     vocab_size=50257,

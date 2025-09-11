@@ -34,11 +34,11 @@ import mlx.core as mx
 
 # Import model and kernels
 try:
-    from implementations.mlx.xlstm_mlx import create_xlstm_model
+    from src.mlx_impl.xlstm_mlx import create_xlstm_model
 except Exception:
     import sys
     sys.path.append(".")
-    from implementations.mlx.xlstm_mlx import create_xlstm_model
+    from src.mlx_impl.xlstm_mlx import create_xlstm_model
 
 from mlx_fast_kernels.gemm_kernels import set_gemm_tiles, get_gemm_tiles
 try:

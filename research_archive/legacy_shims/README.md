@@ -6,7 +6,7 @@ under `research_archive/legacy_shims/` to reduce top-level clutter.
 
 Preferred imports
 - Use the organized paths under `implementations/` instead, for example:
-  - `from implementations.pytorch.xlstm_streaming_inference import ...`
+  - `from src.pytorch.xlstm_streaming_inference import ...`
   - `from implementations.metal.xlstm_metal_optimized import ...`
 
 Kept at root (for compatibility)
