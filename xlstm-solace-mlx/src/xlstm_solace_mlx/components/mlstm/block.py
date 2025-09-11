@@ -2,6 +2,7 @@ import mlx.core as mx
 import mlx.nn as nn
 
 from ..util import CausalConv1d, enlarge_as, clamp
+from ..mh_layernorm import MultiHeadLayerNormMLX
 
 class mLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers):
@@ -84,7 +85,8 @@ class mLSTMBlock(nn.Module):
         hidden_size = head_num * head_size
 
         self.norm = nn.LayerNorm(input_size)
-        self.gn = nn.GroupNorm(head_size, hidden_size)
+        # Replace GroupNorm with true multi‑head LayerNorm parity
+        self.mhln = MultiHeadLayerNormMLX(head_num, head_size)
 
         self.up_l_proj = nn.Linear(input_size, int(p_factor * input_size))
         self.up_r_proj = nn.Linear(input_size, hidden_size)
@@ -154,7 +156,7 @@ class mLSTMBlock(nn.Module):
             scv = scv / mx.expand_dims(nH, -1)
             out.append(scv)
         out = mx.concatenate(out, axis=1)
-        out = self.gn(out)
+        out = self.mhln(out)
         
         out = nn.silu(out) * o
         out = r_t * out

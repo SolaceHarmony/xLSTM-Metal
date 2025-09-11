@@ -5,6 +5,32 @@ from .components.mlstm.block import mLSTMBlock
 from .components.slstm.block import sLSTMBlock
 
 from .components.util import repeat
+from .kernels.gemm_kernels import gemm_av
+
+
+class FastHead(nn.Module):
+    """Final projection without nn.Linear (GEMM via mx.fast tiled kernel).
+
+    Parameters are registered for compatibility with nn.Module.load_weights:
+    - W: (V, D)
+    - b: (V,)
+    """
+
+    def __init__(self, in_dim: int, vocab_size: int, dtype: mx.Dtype = mx.float32):
+        super().__init__()
+        scale = (1.0 / max(1, in_dim)) ** 0.5
+        # MLX treats arrays assigned to attributes as parameters
+        self.W = scale * mx.random.normal((vocab_size, in_dim), dtype=dtype)
+        self.b = mx.zeros((vocab_size,), dtype=dtype)
+
+    def __call__(self, x: mx.array) -> mx.array:
+        # x: (B, S, D) → logits: (B, S, V)
+        B, S, D = x.shape
+        x2d = x.reshape(B * S, D)
+        Wt = mx.transpose(self.W, (1, 0))  # (D, V)
+        logits2d = gemm_av(x2d, Wt)        # (B*S, V)
+        logits2d = logits2d + mx.expand_dims(self.b, 0)
+        return logits2d.reshape(B, S, int(self.W.shape[0]))
 
 class xLSTMSolaceMLX(nn.Module):
     def __init__(
@@ -38,7 +64,8 @@ class xLSTMSolaceMLX(nn.Module):
             for w, _ in zip(repeat(which), range(num_layers))
         ]
 
-        self.head = nn.Linear(inp_dim, vocab_size)
+        # Replace nn.Linear with tiled GEMM head
+        self.head = FastHead(inp_dim, vocab_size)
         
     def __call__(self, tok, hid=None, batch_first: bool = True):
         tok = mx.atleast_2d(tok)
@@ -64,6 +91,7 @@ class xLSTMSolaceMLX(nn.Module):
         # Reconstruct (B, S, D)
         out = mx.stack(out, axis=0)           # (S, B, D)
         out = mx.transpose(out, (1, 0, 2))    # (B, S, D)
+        # Final projection via tiled GEMM head
         out = self.head(out)
 
         return out, hid

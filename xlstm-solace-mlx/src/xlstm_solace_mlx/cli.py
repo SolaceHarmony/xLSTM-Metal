@@ -1,6 +1,7 @@
 import argparse
 import os
-from typing import Optional
+from typing import Optional, Any, Dict
+from pathlib import Path
 
 import mlx.core as mx
 
@@ -53,7 +54,11 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap.add_argument("--temperature", type=float, default=0.8)
     ap.add_argument("--top_k", type=int, default=0)
 
-    # Model dims
+    # GGUF (optional, uses mlx_lm if provided)
+    ap.add_argument("--repo", type=str, default=None, help="Hugging Face repo for GGUF model (e.g., TheBloke/Mistral-7B-v0.1-GGUF)")
+    ap.add_argument("--gguf", type=str, default=None, help="GGUF filename inside the repo or local path (e.g., mistral-7b-v0.1.Q8_0.gguf)")
+
+    # Model dims (custom Solace MLX model path)
     ap.add_argument("--vocab-size", type=int, default=256)
     ap.add_argument("--layers", type=int, default=6)
     ap.add_argument("--model-dim", type=int, default=512)
@@ -61,6 +66,9 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap.add_argument("--heads", type=int, default=8)
     ap.add_argument("--signature", type=str, default="1,1", help="mLSTM,sLSTM pattern (e.g., 1,1)")
     ap.add_argument("--dropout", type=float, default=0.0)
+    # Optional .safetensors weights for MLX module
+    ap.add_argument("--weights", type=str, default=None, help="Path to .safetensors weights matching this MLX model")
+    ap.add_argument("--strict", type=int, default=1, choices=[0,1], help="1 = strict (default), 0 = non-strict load")
 
     # Tokenizer
     ap.add_argument("--hf-tokenizer", type=str, default=None, help="Optional HF tokenizer name (e.g., gpt2)")
@@ -77,7 +85,9 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap.add_argument("--config", type=str, default=None, help="Optional JSON file with runtime overrides")
     args = ap.parse_args(argv)
 
-    # Apply runtime config
+    # (GGUF handling moved after JSON overrides)
+
+    # Apply runtime config (Solace MLX custom model path)
     try:
         configure_gemm(pad=bool(args.gemm_pad) if args.gemm_pad is not None else None,
                        align_execw=bool(args.gemm_align_execw) if args.gemm_align_execw is not None else None,
@@ -132,6 +142,91 @@ def main(argv: Optional[list[str]] = None) -> None:
         pass
     for d in (base, prof, cfg_file):
         merged.update({k: v for k, v in d.items() if v is not None})
+    # Allow model and run-level options in config JSON as well
+    def _apply_json_overrides(args_obj, cfg: Dict[str, Any]):
+        mapping = {
+            # Run options
+            "prompt": "prompt",
+            "prompt_file": "prompt_file",
+            "max_new_tokens": "max_new_tokens",
+            "temperature": "temperature",
+            "top_k": "top_k",
+            "stats_log": "stats_log",
+            "stats_every": "stats_every",
+            "hf_tokenizer": "hf_tokenizer",
+            # Weights / strict
+            "weights": "weights",
+            "strict": "strict",
+            # Model dims
+            "vocab_size": "vocab_size",
+            "layers": "layers",
+            "model_dim": "model_dim",
+            "head_dim": "head_dim",
+            "heads": "heads",
+            "signature": "signature",
+            # Runtime tuning
+            "gemm_pad": "gemm_pad",
+            "gemm_align_execw": "gemm_align_execw",
+            "gemm_double_buffer": "gemm_double_buffer",
+            "qr_dot_mode": "qr_dot_mode",
+            "fast_head": "fast_head",
+            # GGUF via mlx_lm
+            "repo": "repo",
+            "gguf": "gguf",
+            # Conversion helpers (HF → MLX)
+            "hf_path": "hf_path",
+            "mlx_out": "mlx_out",
+            "convert_hf": "convert_hf",
+        }
+        for k_src, k_dst in mapping.items():
+            if k_src in cfg:
+                setattr(args_obj, k_dst, cfg[k_src])
+        # Normalize types
+        if isinstance(getattr(args_obj, "strict", 1), int):
+            setattr(args_obj, "strict", int(getattr(args_obj, "strict")))
+        return args_obj
+    args = _apply_json_overrides(args, merged)
+
+    # If GGUF is specified (possibly via JSON), use mlx_lm to load and run
+    if getattr(args, "gguf", None) and getattr(args, "repo", None):
+        try:
+            from mlx_lm import load as _mlx_load, generate as _mlx_generate  # type: ignore
+        except Exception as e:
+            raise RuntimeError("mlx_lm is required for GGUF loading. Install with: pip install mlx-lm") from e
+        model, tokenizer = _mlx_load(args.repo, tokenizer_config={}, model=args.gguf)
+        text = _mlx_generate(model, tokenizer, prompt=args.prompt, max_tokens=int(args.max_new_tokens))
+        print(text)
+        return
+    # Optional HF → MLX conversion if JSON provides hf_path and no explicit weights
+    if getattr(args, "weights", None) in (None, "") and merged.get("hf_path") and bool(merged.get("convert_hf", False)):
+        try:
+            from mlx_lm.convert import convert  # type: ignore
+        except Exception as e:
+            raise RuntimeError("mlx_lm is required for HF→MLX conversion. Install with: pip install mlx-lm") from e
+        hf_path = Path(str(merged["hf_path"]))
+        mlx_out = Path(str(merged.get("mlx_out", Path("model_cache") / (hf_path.name + "_mlx"))))
+        # If target exists and has weights, reuse; if exists but empty, create a fresh subdir
+        if mlx_out.exists():
+            st = sorted(mlx_out.glob("*.safetensors"))
+            if not st:
+                # Find a unique subdir to satisfy mlx_lm.convert requirement
+                base = mlx_out
+                i = 1
+                while True:
+                    candidate = base.parent / f"{base.name}_{i}"
+                    if not candidate.exists():
+                        mlx_out = candidate
+                        break
+                    i += 1
+        # Perform conversion only if no .safetensors present at (possibly updated) mlx_out
+        if not mlx_out.exists():
+            # convert will create the directory; do not pre-create
+            convert(str(hf_path), str(mlx_out))
+        st = sorted(mlx_out.glob("*.safetensors"))
+        if not st:
+            raise RuntimeError(f"No .safetensors produced in {mlx_out} after conversion")
+        args.weights = str(st[0])
+
     # Map merged into runtime config
     try:
         from .tools.mlx_runtime import configure_gemm, configure_qr, configure_model
@@ -149,7 +244,11 @@ def main(argv: Optional[list[str]] = None) -> None:
         pass
 
     # Model
-    sig = tuple(int(x) for x in args.signature.split(","))
+    # Signature can be provided as string "1,1" or list
+    if isinstance(args.signature, str):
+        sig = tuple(int(x) for x in args.signature.split(","))
+    else:
+        sig = tuple(int(x) for x in (args.signature or [1, 1]))
     if args.print_config:
         eff = {
             "vocab_size": vocab_size,
@@ -164,7 +263,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         print(_json.dumps(eff, indent=2))
         return
     model = create_xlstm_model(
-        vocab_size=vocab_size,
+        vocab_size=int(getattr(args, "vocab_size", vocab_size)),
         num_layers=int(args.layers),
         signature=sig,
         inp_dim=int(args.model_dim),
@@ -173,6 +272,30 @@ def main(argv: Optional[list[str]] = None) -> None:
         dropout=float(args.dropout),
     )
 
+    # Optionally load .safetensors weights into the MLX model
+    if args.weights:
+        wpath = Path(str(args.weights))
+        if not wpath.exists():
+            raise FileNotFoundError(f"Weights not found: {wpath}. Set 'weights' in your JSON to an existing MLX .safetensors file.")
+        try:
+            use_mx_loader = bool(merged.get("weights_loader") == "mlx")
+            if use_mx_loader:
+                data = mx.load(str(wpath))  # may be a dict or single array
+                if isinstance(data, dict):
+                    pairs = [(k, v) for k, v in data.items()]
+                else:
+                    # Single-array files must map to a known single parameter name
+                    raise RuntimeError("Single-array weight files are not supported without parameter names.")
+                model.load_weights(pairs, strict=bool(int(args.strict)))
+            else:
+                model.load_weights(str(wpath), strict=bool(int(args.strict)))
+            print(f"Loaded weights from: {args.weights} (strict={bool(int(args.strict))})")
+        except Exception as e:
+            raise RuntimeError(
+                "Failed to load weights. Ensure the .safetensors file was saved for this MLX architecture and naming.\n"
+                "For raw files, set 'weights_loader': 'mlx' in your JSON to load via mx.core.load."
+            ) from e
+
     # Encode prompt
     if args.hf_tokenizer:
         ids = tok.encode(prompt, return_tensors=None)
@@ -180,6 +303,7 @@ def main(argv: Optional[list[str]] = None) -> None:
             ids = ids["input_ids"]
     else:
         ids = tok.encode(prompt)
+    # Allow JSON to override max sequence at prefill by limiting ids
     ids = ids[:4096]
     input_ids = mx.array([ids], dtype=mx.int32)
 

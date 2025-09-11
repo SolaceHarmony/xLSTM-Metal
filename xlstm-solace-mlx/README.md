@@ -13,3 +13,9 @@ Status
 Notes
 - Target Python: 3.12 (conda base recommended).
 - Focus: pure-MLX, single-process execution; keep MLX tensors on device (avoid CPU/NumPy hops).
+
+Weights (.safetensors)
+- The CLI can load MLX-native .safetensors weights produced for this architecture.
+- Usage: `python xlstm_run_mlx.py --weights /path/to/model.safetensors --strict 1 --prompt "Hello"`.
+- Strict loading (`--strict 1`, default) checks names/shapes match the module’s parameters.
+- If converting from Hugging Face/PyTorch, use `mlx_lm.convert` to produce MLX-compatible weights so names align.

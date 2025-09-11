@@ -276,7 +276,7 @@ def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optio
     if tpb is None:
         # Runtime config first
         try:
-            from tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
+            from xlstm_solace_mlx.tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
         except Exception:
             _get_runtime_config = None
         if _get_runtime_config is not None:
@@ -286,13 +286,6 @@ def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optio
                     tpb = int(rc.get("ivf_tpb"))
             except Exception:
                 tpb = None
-        if tpb is None:
-            override = os.environ.get("IVF_TPB")
-            if override:
-                try:
-                    tpb = int(override)
-                except Exception:
-                    tpb = None
     if tpb is None:
         limit = max(1, 1024 // max(1, kk))
         base = (limit // 32) * 32
@@ -336,7 +329,7 @@ def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb:
     shape = mx.array([m, d, kk, b], dtype=mx.uint32)
     if tpb is None:
         try:
-            from tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
+            from xlstm_solace_mlx.tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
         except Exception:
             _get_runtime_config = None
         if _get_runtime_config is not None:
@@ -346,13 +339,6 @@ def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb:
                     tpb = int(rc.get("ivf_tpb"))
             except Exception:
                 tpb = None
-        if tpb is None:
-            override = os.environ.get("IVF_TPB")
-            if override:
-                try:
-                    tpb = int(override)
-                except Exception:
-                    tpb = None
     if tpb is None:
         limit = max(1, 1024 // max(1, kk))
         base = (limit // 32) * 32
