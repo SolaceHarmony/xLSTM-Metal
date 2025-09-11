@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xlstm-solace-mlx"
+version = "0.0.1a0"
+description = "Unofficial Solace packaging of xLSTM for Apple MLX (no Ray). Not affiliated with NX-AI."
+authors = [{name = "Solace (fork maintainers)"}]
+requires-python = ">=3.12"
+readme = "README.md"
+dependencies = [
+  "mlx>=0.29",
+  "transformers>=4.40",
+]
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: Other/Proprietary License",
+  "Operating System :: MacOS :: MacOS X",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://github.com/SolaceHarmony/xLSTM-Metal"
+Repository = "https://github.com/SolaceHarmony/xLSTM-Metal"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = [
+  "xlstm_solace_mlx*",
+]
+
+[project.scripts]
+xlstm-mlx = "xlstm_solace_mlx.cli:main"
+
+[tool.setuptools.package-data]
+"xlstm_solace_mlx" = ["metal/*.metal"]

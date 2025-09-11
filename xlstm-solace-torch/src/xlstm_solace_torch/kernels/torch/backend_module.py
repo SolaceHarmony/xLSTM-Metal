@@ -19,10 +19,16 @@ from .kernel_wrappers import (
 )
 
 ChunkwiseKernelType = Literal[
+    # Training / baseline
     "chunkwise--native_autograd",
     "chunkwise--native_custbw",
     "chunkwise--triton_limit_chunk",
     "chunkwise--triton_xl_chunk",
+    # Production compiled variants
+    "chunkwise--native_compiled_autograd",
+    "chunkwise--queued_compiled_steps",
+    "chunkwise--ray_compiled_steps",
+    # Fully-parallel comparators
     "parallel--native_autograd",
     "parallel--native_custbw",
     "parallel--native_stablef_autograd",
@@ -30,9 +36,11 @@ ChunkwiseKernelType = Literal[
     "parallel--triton_limit_headdim",
 ]
 SequenceKernelType = Literal[
-    "native_sequence__native", "native_sequence__triton"
+    "native_sequence__native",
+    "native_sequence__triton",
+    "native_sequence__metal",
 ]
-StepKernelType = Literal["native", "triton"]
+StepKernelType = Literal["native", "triton", "metal"]
 
 DtypeType = Literal["float32", "bfloat16", "float16"]
 

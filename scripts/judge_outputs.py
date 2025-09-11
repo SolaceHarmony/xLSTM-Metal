@@ -30,7 +30,7 @@ import json
 import torch
 from transformers import AutoTokenizer
 
-from xlstm_official_full.xlstm_large.model import xLSTMLarge
+from xlstm_solace_torch.models.model import xLSTMSolaceTorch as xLSTMLarge
 from scripts.run_local_xlstm_mps import load_local_config, load_local_weights
 
 

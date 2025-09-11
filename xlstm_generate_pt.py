@@ -3,7 +3,7 @@
 Run a local xLSTM HF checkpoint on Apple Silicon (MPS) using the compiled backends.
 
 - Loads HF-style sharded safetensors from a local directory (config.json + model-*.safetensors).
-- Instantiates xlstm_official_full xLSTMLarge with compiled kernels on MPS.
+- Instantiates Solace xLSTMSolaceTorch with compiled kernels on MPS.
 - Maps known key differences (backbone.embeddings.weight -> embedding.weight).
 """
 import argparse
@@ -17,16 +17,16 @@ from safetensors import safe_open
 from transformers import AutoTokenizer
 import torch.nn.functional as F
 
-from xlstm_official_full.xlstm_large.model import xLSTMLarge, xLSTMLargeConfig
+from xlstm_solace_torch.models.model import xLSTMSolaceTorch, xLSTMSolaceTorchConfig
 
 # Global abort flag to allow SIGTERM-triggered graceful stop during decode
 _ABORT_FLAG = {"stop": False}
-from mlstm_kernels.torch.monitoring.memory import MemoryMonitor
-from mlstm_kernels.torch.monitoring.ray_metrics import make_gauges
+from xlstm_solace_torch.kernels.torch.monitoring.memory import MemoryMonitor
+from xlstm_solace_torch.kernels.torch.monitoring.ray_metrics import make_gauges
 
 
-def load_local_config(config_path: Path) -> xLSTMLargeConfig:
-    """Load HF config.json and build xLSTMLargeConfig.
+def load_local_config(config_path: Path) -> xLSTMSolaceTorchConfig:
+    """Load HF config.json and build xLSTMSolaceTorchConfig.
 
     - Copies all relevant fields from JSON.
     - On MPS, forces compiled MPS backends (Ray, metal, native_sequence__metal).
@@ -35,7 +35,7 @@ def load_local_config(config_path: Path) -> xLSTMLargeConfig:
     cfg = json.loads(config_path.read_text())
 
     # Base construction from JSON
-    mcfg = xLSTMLargeConfig(
+    mcfg = xLSTMSolaceTorchConfig(
         embedding_dim=cfg["embedding_dim"],
         num_heads=cfg["num_heads"],
         num_blocks=cfg["num_blocks"],
@@ -242,7 +242,7 @@ def main():
         os.environ["XLSTM_CHUNKWISE_BACKEND"] = args.chunkwise_backend
         # Update the config view as well
         mcfg.chunkwise_kernel = f"chunkwise--{args.chunkwise_backend}"
-    model = xLSTMLarge(mcfg)
+    model = xLSTMSolaceTorch(mcfg)
     # Load weights
     print("Loading weights ...")
     sd = load_local_weights(model_dir)
@@ -363,7 +363,7 @@ def main():
             # Experimental CfC logit calibration (per-step)
             if args.cfc_calibrate != "off":
                 try:
-                    from mlstm_kernels.torch.experiments.cfc_logit_calibrator import CfCLogitCalibrator
+                    from xlstm_solace_torch.kernels.torch.experiments.cfc_logit_calibrator import CfCLogitCalibrator
                     if not hasattr(_greedy_gen_timed, "_cfc_inst"):
                         _greedy_gen_timed._cfc_inst = CfCLogitCalibrator(
                             vocab_size=logits.size(-1),
