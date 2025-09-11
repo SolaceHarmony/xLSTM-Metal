@@ -38,18 +38,9 @@ from __future__ import annotations
 from typing import Tuple
 import os
 import mlx.core as mx
-try:
-    import mlx.core.metal as metal
-except Exception:  # pragma: no cover
-    metal = None  # type: ignore
-try:
-    from tools.mlx_tuning import tiles_for_gemm as _tiles_for_gemm
-except Exception:
-    _tiles_for_gemm = None
-try:
-    from tools.mlx_runtime import get_runtime_config as _get_runtime_config
-except Exception:
-    _get_runtime_config = None
+import mlx.core.metal as metal
+from tools.mlx_tuning import tiles_for_gemm as _tiles_for_gemm
+from tools.mlx_runtime import get_runtime_config as _get_runtime_config
 
 _HEADER = """#include <metal_stdlib>\nusing namespace metal;\n"""
 

@@ -31,25 +31,21 @@ def debug_storage_api():
     
     # Try untyped_storage as suggested
     print(f"\nTrying untyped_storage():")
-    try:
-        cpu_untyped = cpu_tensor.untyped_storage()
-        mps_untyped = mps_tensor.untyped_storage()
-        print(f"CPU untyped storage: {type(cpu_untyped)}")
-        print(f"MPS untyped storage: {type(mps_untyped)}")
-        
-        print(f"\nUntyped storage methods:")
-        untyped_methods = [m for m in dir(mps_untyped) if not m.startswith('_')]
-        print(f"  {untyped_methods}")
-        
-        # Check if data_ptr exists on untyped storage
-        if hasattr(mps_untyped, 'data_ptr'):
-            mps_data_ptr = mps_untyped.data_ptr()
-            print(f"\nMPS untyped storage data_ptr: 0x{mps_data_ptr:x}")
-        else:
-            print(f"\nNo data_ptr on untyped storage")
-            
-    except Exception as e:
-        print(f"Error with untyped_storage: {e}")
+    cpu_untyped = cpu_tensor.untyped_storage()
+    mps_untyped = mps_tensor.untyped_storage()
+    print(f"CPU untyped storage: {type(cpu_untyped)}")
+    print(f"MPS untyped storage: {type(mps_untyped)}")
+    
+    print(f"\nUntyped storage methods:")
+    untyped_methods = [m for m in dir(mps_untyped) if not m.startswith('_')]
+    print(f"  {untyped_methods}")
+    
+    # Check if data_ptr exists on untyped storage
+    if hasattr(mps_untyped, 'data_ptr'):
+        mps_data_ptr = mps_untyped.data_ptr()
+        print(f"\nMPS untyped storage data_ptr: 0x{mps_data_ptr:x}")
+    else:
+        print(f"\nNo data_ptr on untyped storage")
     
     # What about tensor.data_ptr() directly?
     print(f"\nDirect tensor data_ptr:")

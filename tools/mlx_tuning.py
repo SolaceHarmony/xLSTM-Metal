@@ -22,19 +22,13 @@ import json
 from pathlib import Path
 from typing import Optional, Tuple
 
-try:
-    import mlx.core.metal as metal
-except Exception:
-    metal = None  # type: ignore
+import mlx.core.metal as metal
 
 
 def _load_params() -> dict:
     cfg_path = Path("configs/mlx_hardware_params.json")
     if cfg_path.exists():
-        try:
-            return json.loads(cfg_path.read_text())
-        except Exception:
-            pass
+        return json.loads(cfg_path.read_text())
     # Built-in defaults
     return {
         "metal": {
@@ -47,12 +41,8 @@ def _load_params() -> dict:
 def device_key() -> Tuple[str, str]:
     backend = "metal" if metal is not None else "cpu"
     name = ""
-    if metal is not None:
-        try:
-            info = metal.device_info()
-            name = str(info.get("device_name", ""))
-        except Exception:
-            pass
+    info = metal.device_info()
+    name = str(info.get("device_name", ""))
     return backend, name.lower()
 
 

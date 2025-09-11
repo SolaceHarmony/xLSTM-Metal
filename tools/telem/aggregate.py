@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Telemetry Aggregator
+Telemedef is_numeric(x: str) -> bool:
+    float(x)
+    return Truegregator
 
 Reads CSV logs (glob) and emits:
 - metrics_summary.json: last/mean/std/min/max/count per metric
@@ -32,11 +34,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def is_float(x: str) -> bool:
-    try:
-        float(x)
-        return True
-    except Exception:
-        return False
+    float(x)
+    return True
 
 
 def read_csv_series(paths: List[Path], metrics: List[str] | None) -> Tuple[Dict[str, List[float]], List[str]]:

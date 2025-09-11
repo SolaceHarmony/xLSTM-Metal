@@ -389,9 +389,6 @@ def test_extension():
     except ImportError as e:
         print(f"✗ Failed to import extension: {e}")
         return False
-    except Exception as e:
-        print(f"✗ Test failed: {e}")
-        return False
 
 
 def benchmark_metal_vs_pytorch(runs=100):
@@ -399,19 +396,17 @@ def benchmark_metal_vs_pytorch(runs=100):
     
     print("Benchmarking Metal vs PyTorch...")
     
-    try:
-        import torch
-        import time
-        from pytorch_metal_xlstm import metal_soft_cap
-        
-        device = torch.device("mps")
-        test_tensor = torch.randn(10000, device=device) * 10
-        cap_value = 5.0
-        
-        # Warmup
-        for _ in range(10):
-            _ = metal_soft_cap(test_tensor, cap_value)
-            _ = cap_value * torch.tanh(test_tensor / cap_value)
+    import torch
+    import time
+    from pytorch_metal_xlstm import metal_soft_cap
+    
+    device = torch.device("mps")
+    test_tensor = torch.randn(10000, device=device) * 10
+    cap_value = 5.0
+    
+    # Warmup
+    for _ in range(10):
+        _ = metal_soft_cap(test_tensor, cap_value)
         torch.mps.synchronize()
         
         # Benchmark Metal kernel
@@ -439,17 +434,11 @@ def benchmark_metal_vs_pytorch(runs=100):
             slowdown = metal_time / pytorch_time
             print(f"⚠ Metal kernel {slowdown:.2f}x slower (overhead from kernel dispatch)")
         
-        # Verify correctness
-        max_diff = torch.abs(result_metal - result_pytorch).max()
-        print(f"Maximum difference: {max_diff:.6f}")
-        
-        return metal_time < pytorch_time
-        
-    except Exception as e:
-        print(f"Benchmark failed: {e}")
-        return False
-
-
+    # Verify correctness
+    max_diff = torch.abs(result_metal - result_pytorch).max()
+    print(f"Maximum difference: {max_diff:.6f}")
+    
+    return metal_time < pytorch_time
 if __name__ == "__main__":
     print("PyTorch Metal Extension Builder")
     print("=" * 40)

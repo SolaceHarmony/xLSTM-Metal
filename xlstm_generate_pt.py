@@ -2,8 +2,13 @@
 """
 Run a local xLSTM HF checkpoint on Apple Silicon (MPS) using the compiled backends.
 
-- Loads HF-style sharded safetensors from a local directory (config.json + model-*.safetensors).
-- Instantiates Solace xLSTMSolaceTorch with compiled kernels on MPS.
+- Loads HF-style sharded safetensors from a local directory (config.json + model-*.safe        def _load_packaged_profile(backend):
+            import importlib.resources as ir
+            pkg = 'xlstm_solace_torch.configs'
+            fname = 'golden_ray.json' if 'ray' in backend else 'golden_queued.json'
+            with ir.files(pkg).joinpath(fname).open('r') as f:
+                import json as _json
+                return _json.load(f)- Instantiates Solace xLSTMSolaceTorch with compiled kernels on MPS.
 - Maps known key differences (backbone.embeddings.weight -> embedding.weight).
 """
 import argparse
@@ -157,15 +162,12 @@ def main():
 
     # JSON configuration loader and overlay
     def _load_json(fp):
-        try:
-            import json as _json
-            from pathlib import Path as _P
-            p = _P(fp)
-            if not p.exists():
-                return {}
-            return _json.loads(p.read_text())
-        except Exception:
+        import json as _json
+        from pathlib import Path as _P
+        p = _P(fp)
+        if not p.exists():
             return {}
+        return _json.loads(p.read_text())
 
     def _apply_runtime_overrides(args_obj):
         """Apply JSON runtime defaults and profiles into args/env/mcfg.
@@ -179,30 +181,24 @@ def main():
         cfg_dir = _P("configs")
         # Helper: load packaged golden profile
         def _load_packaged_profile(backend: str) -> dict:
-            try:
-                import importlib.resources as ir
-                pkg = 'xlstm_solace_torch.configs'
-                fname = 'golden_ray.json' if 'ray' in backend else 'golden_queued.json'
-                with ir.files(pkg).joinpath(fname).open('r') as f:
-                    import json as _json
-                    return _json.load(f)
-            except Exception:
-                return {}
+            import importlib.resources as ir
+            pkg = 'xlstm_solace_torch.configs'
+            fname = 'golden_ray.json' if 'ray' in backend else 'golden_queued.json'
+            with ir.files(pkg).joinpath(fname).open('r') as f:
+                import json as _json
+                return _json.load(f)
         if args_obj.profile:
             cand = cfg_dir / f"{args_obj.profile}.json"
             prof = _load_json(str(cand)) or _load_packaged_profile(args_obj.profile)
         else:
-            try:
-                backend = (args_obj.chunkwise_backend or base.get("chunkwise_backend") or "ray_compiled_steps")
-                # Prefer packaged golden, then newest matching in ./configs
-                prof = _load_packaged_profile(backend)
-                if not prof:
-                    patt = "*ray*.json" if "ray" in str(backend) else "*queued*.json"
-                    candidates = sorted(cfg_dir.glob(patt), key=lambda p: p.stat().st_mtime, reverse=True)
-                    if candidates:
-                        prof = _load_json(str(candidates[0]))
-            except Exception:
-                pass
+            backend = (args_obj.chunkwise_backend or base.get("chunkwise_backend") or "ray_compiled_steps")
+            # Prefer packaged golden, then newest matching in ./configs
+            prof = _load_packaged_profile(backend)
+            if not prof:
+                patt = "*ray*.json" if "ray" in str(backend) else "*queued*.json"
+                candidates = sorted(cfg_dir.glob(patt), key=lambda p: p.stat().st_mtime, reverse=True)
+                if candidates:
+                    prof = _load_json(str(candidates[0]))
         # Explicit config path
         cfg_file = _load_json(args_obj.config) if args_obj.config else {}
 
@@ -303,20 +299,17 @@ def main():
     assert torch.backends.mps.is_available(), "MPS not available; requires Apple Silicon."
     # Auto-apply last optimizer best.json unless disabled
     if os.environ.get("XLSTM_USE_BEST", "1") == "1":
-        try:
-            from pathlib import Path as _P
-            import json as _json
-            runs = sorted((_P("runs/mps_opt").glob("*/best.json")), key=lambda p: p.stat().st_mtime, reverse=True)
-            if runs:
-                best = _json.loads(runs[0].read_text())
-                hpb = best.get("heads_per_band") or best.get("hpb")
-                csz = best.get("chunk_size") or best.get("ck")
-                if hpb is not None and os.environ.get("XLSTM_MPS_HEADS_PER_BAND") is None and args.heads_per_band is None:
-                    os.environ["XLSTM_MPS_HEADS_PER_BAND"] = str(int(hpb))
-                if csz is not None and args.chunk_size is None:
-                    mcfg.chunk_size = int(csz)
-        except Exception:
-            pass
+        from pathlib import Path as _P
+        import json as _json
+        runs = sorted((_P("runs/mps_opt").glob("*/best.json")), key=lambda p: p.stat().st_mtime, reverse=True)
+        if runs:
+            best = _json.loads(runs[0].read_text())
+            hpb = best.get("heads_per_band") or best.get("hpb")
+            csz = best.get("chunk_size") or best.get("ck")
+            if hpb is not None and os.environ.get("XLSTM_MPS_HEADS_PER_BAND") is None and args.heads_per_band is None:
+                os.environ["XLSTM_MPS_HEADS_PER_BAND"] = str(int(hpb))
+            if csz is not None and args.chunk_size is None:
+                mcfg.chunk_size = int(csz)
     # Apply optional CLI overrides (None means: keep JSON/defaults)
     if args.chunk_size is not None:
         mcfg.chunk_size = args.chunk_size
@@ -341,11 +334,8 @@ def main():
     # Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
     # Quiet parallelism warnings without envs
-    try:
-        from tokenizers import utils as _tok_utils  # type: ignore
-        _tok_utils.enable_parallelism(False)  # type: ignore
-    except Exception:
-        pass
+    from tokenizers import utils as _tok_utils  # type: ignore
+    _tok_utils.enable_parallelism(False)  # type: ignore
 
     # Device setup
     device = torch.device("mps")
@@ -423,10 +413,7 @@ def main():
         # Emit prefill throughput if time is non-trivial
         prompt_len = prefill_tokens.shape[1]
         prefill_tps = prompt_len / max((t1 - t0), 1e-9)
-        try:
-            gauges["tok_s_prefill"].set(prefill_tps)
-        except Exception:
-            pass
+        gauges["tok_s_prefill"].set(prefill_tps)
         next_tok = torch.argmax(logits[:, -1:, :], dim=-1)
         gen[:, 0:1] = next_tok
         # Stop tracking
@@ -434,11 +421,8 @@ def main():
         eos_id = None if args.no_eos_stop else getattr(tokenizer, "eos_token_id", None)
         # Text buffer to detect stop strings incrementally
         text_buf = ""
-        try:
-            frag = tokenizer.decode(next_tok[0].tolist(), skip_special_tokens=False)
-            text_buf += frag
-        except Exception:
-            pass
+        frag = tokenizer.decode(next_tok[0].tolist(), skip_special_tokens=False)
+        text_buf += frag
         if eos_id is not None and int(next_tok.item()) == int(eos_id):
             if stats_fp:
                 stats_fp.close()
@@ -461,22 +445,19 @@ def main():
             logits, state = model(next_tok, state)
             # Experimental CfC logit calibration (per-step)
             if args.cfc_calibrate != "off":
-                try:
-                    from xlstm_solace_torch.kernels.torch.experiments.cfc_logit_calibrator import CfCLogitCalibrator
-                    if not hasattr(_greedy_gen_timed, "_cfc_inst"):
-                        _greedy_gen_timed._cfc_inst = CfCLogitCalibrator(
-                            vocab_size=logits.size(-1),
-                            hidden=args.cfc_hidden,
-                            backbone_units=args.cfc_backbone,
-                            backbone_layers=1,
-                            mode=args.cfc_mode,
-                            activation=("lecun_tanh" if args.cfc_calibrate=="lecun_tanh" else "lecun_tanh"),
-                            topk_bias=max(0, int(args.cfc_topk)),
-                        ).to(device)
-                    calibrator = _greedy_gen_timed._cfc_inst
-                    logits, cfc_state = calibrator(logits, cfc_state, token_ids=next_tok.squeeze(1))
-                except Exception as e:
-                    pass
+                from xlstm_solace_torch.kernels.torch.experiments.cfc_logit_calibrator import CfCLogitCalibrator
+                if not hasattr(_greedy_gen_timed, "_cfc_inst"):
+                    _greedy_gen_timed._cfc_inst = CfCLogitCalibrator(
+                        vocab_size=logits.size(-1),
+                        hidden=args.cfc_hidden,
+                        backbone_units=args.cfc_backbone,
+                        backbone_layers=1,
+                        mode=args.cfc_mode,
+                        activation=("lecun_tanh" if args.cfc_calibrate=="lecun_tanh" else "lecun_tanh"),
+                        topk_bias=max(0, int(args.cfc_topk)),
+                    ).to(device)
+                calibrator = _greedy_gen_timed._cfc_inst
+                logits, cfc_state = calibrator(logits, cfc_state, token_ids=next_tok.squeeze(1))
             td1 = time.time()
             dt = td1 - td0
             decode_time += dt
@@ -486,11 +467,8 @@ def main():
             # Stop on EOS or configured stop strings
             if eos_id is not None and int(next_tok.item()) == int(eos_id):
                 break
-            try:
-                frag = tokenizer.decode(next_tok[0].tolist(), skip_special_tokens=False)
-                text_buf += frag
-            except Exception:
-                pass
+            frag = tokenizer.decode(next_tok[0].tolist(), skip_special_tokens=False)
+            text_buf += frag
             if stop_strings and any((s and s in text_buf) for s in stop_strings):
                 break
             if stats_fp and (i % max(args.stats_every, 1) == 0):
@@ -498,10 +476,7 @@ def main():
                 avg = i / max(cum, 1e-9)
                 stats_fp.write(f"{i},{dt*1000.0:.3f},{cum*1000.0:.3f},{inst:.3f},{avg:.3f}\n")
             # Emit decode instantaneous tok/s to Ray dashboard if available
-            try:
-                gauges["tok_s_decode"].set(1.0 / max(dt, 1e-9))
-            except Exception:
-                pass
+            gauges["tok_s_decode"].set(1.0 / max(dt, 1e-9))
         if stats_fp:
             stats_fp.close()
         return gen, state, (t1 - t0), decode_time
@@ -526,21 +501,15 @@ def main():
 
     # Install lightweight signal handlers for operational control
     def _sigusr1_handler(signum, frame):
-        try:
-            if torch.backends.mps.is_available():
-                torch.mps.empty_cache()  # type: ignore[attr-defined]
-                print("[runner] SIGUSR1: torch.mps.empty_cache(): ok", flush=True)
-        except Exception:
-            print("[runner] SIGUSR1: empty_cache failed", flush=True)
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()  # type: ignore[attr-defined]
+            print("[runner] SIGUSR1: torch.mps.empty_cache(): ok", flush=True)
 
     def _sigterm_handler(signum, frame):
         _ABORT_FLAG["stop"] = True
         print("[runner] SIGTERM: graceful stop requested", flush=True)
 
-    try:
-        signal.signal(signal.SIGUSR1, _sigusr1_handler)  # type: ignore[attr-defined]
-        signal.signal(signal.SIGTERM, _sigterm_handler)
-    except Exception:
-        pass
+    signal.signal(signal.SIGUSR1, _sigusr1_handler)  # type: ignore[attr-defined]
+    signal.signal(signal.SIGTERM, _sigterm_handler)
 if __name__ == "__main__":
     main()

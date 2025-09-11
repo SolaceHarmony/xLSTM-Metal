@@ -19,21 +19,15 @@ from pathlib import Path
 
 
 def read_text(p: Path) -> list[str]:
-    try:
-        return p.read_text(encoding="utf-8").splitlines()
-    except Exception:
-        return []
+    return p.read_text(encoding="utf-8").splitlines()
 
 
 def digest(p: Path) -> str:
     h = hashlib.sha256()
-    try:
-        with open(p, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                h.update(chunk)
-        return h.hexdigest()
-    except Exception:
-        return ""
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def collect(base: Path) -> dict[str, Path]:
@@ -52,15 +46,11 @@ def main() -> int:
         return 1
 
     # find site-packages xlstm
-    try:
-        import xlstm as xlstm_pkg  # type: ignore
-        pkg_root = Path(xlstm_pkg.__file__).resolve().parent
-        theirs_base = pkg_root / "xlstm_large"
-        if not theirs_base.exists():
-            print(f"error: installed xlstm has no xlstm_large at: {theirs_base}")
-            return 1
-    except Exception as e:
-        print("error: could not import xlstm from site-packages:", e)
+    import xlstm as xlstm_pkg  # type: ignore
+    pkg_root = Path(xlstm_pkg.__file__).resolve().parent
+    theirs_base = pkg_root / "xlstm_large"
+    if not theirs_base.exists():
+        print(f"error: installed xlstm has no xlstm_large at: {theirs_base}")
         return 1
 
     ours = collect(ours_base)

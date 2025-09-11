@@ -106,12 +106,9 @@ def test_mlstm_backend():
     
     print(f"   Input shapes - q: {q.shape}, k: {k.shape}, v: {v.shape}")
     
-    try:
-        h, state = backend(q=q, k=k, v=v, i=i, f=f)
-        print(f"   Output shape: {h.shape}")
-        print("   ✓ mLSTM backend working correctly")
-    except Exception as e:
-        print(f"   ✗ mLSTM backend failed: {e}")
+    h, state = backend(q=q, k=k, v=v, i=i, f=f)
+    print(f"   Output shape: {h.shape}")
+    print("   ✓ mLSTM backend working correctly")
 
 def test_simple_forward():
     """Test a simple forward pass"""
