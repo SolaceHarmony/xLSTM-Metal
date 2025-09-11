@@ -5,7 +5,6 @@ PyTorch implementation of xLSTM with high-performance kernels for Apple Silicon 
 """
 
 from .models import xLSTMSolaceTorch, xLSTMSolaceTorchConfig
-from .api import create_xlstm_model
 
 __version__ = "0.1.0"
 

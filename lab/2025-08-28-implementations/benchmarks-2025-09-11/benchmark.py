@@ -12,7 +12,7 @@ from tabulate import tabulate
 def benchmark_mlx(configs):
     """Benchmark MLX implementation"""
     import mlx.core as mx
-    from xlstm_solace_mlx.api import create_xlstm_model
+    from xlstm_mlx import create_xlstm_model
     
     results = []
     
@@ -66,7 +66,7 @@ def benchmark_mlx(configs):
 def benchmark_pytorch(configs):
     """Benchmark PyTorch implementation"""
     import torch
-    from xlstm_solace_torch.api import create_xlstm_model
+    from xlstm_pytorch import create_xlstm_model
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     results = []
@@ -170,7 +170,7 @@ def memory_benchmark():
     # PyTorch memory test
     try:
         import torch
-        from xlstm_solace_torch.api import create_xlstm_model
+        from xlstm_solace_torch import api.create_xlstm_model
         
         model = create_xlstm_model(
             vocab_size=10000,

@@ -8,7 +8,7 @@ from typing import Literal
 import torch
 from torch import nn
 
-from .registry import (
+from . import (
     get_mlstm_kernel,
     get_mlstm_sequence_kernel,
     get_mlstm_step_kernel,
