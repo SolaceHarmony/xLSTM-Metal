@@ -67,7 +67,6 @@ class mLSTM(nn.Module):
         h = mx.zeros((self.num_layers, 1))
         return C, h
 
-
 class mLSTMBlock(nn.Module):
     def __init__(
         self, 

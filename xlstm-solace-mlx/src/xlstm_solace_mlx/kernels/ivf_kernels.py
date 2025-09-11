@@ -250,7 +250,6 @@ _KERNEL_TOPK_MERGE = mx.fast.metal_kernel(
     ensure_row_contiguous=True,
 )
 
-
 def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
     """Computes the top-k L2 distances and corresponding IDs for a single query vector.
 
@@ -275,34 +274,7 @@ def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optio
     shape = mx.array([m, d, kk], dtype=mx.uint32)
     if tpb is None:
         # Runtime config first
-        try:
-            from xlstm_solace_mlx.tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
-        except Exception:
-            _get_runtime_config = None
-        if _get_runtime_config is not None:
-            try:
-                rc = _get_runtime_config()
-                if rc.get("ivf_tpb") is not None:
-                    tpb = int(rc.get("ivf_tpb"))
-            except Exception:
-                tpb = None
-    if tpb is None:
-        limit = max(1, 1024 // max(1, kk))
-        base = (limit // 32) * 32
-        if base < 32: base = 32
-        if base > 256: base = 256
-        tpb = base
-    grid = (1, 1, 1)
-    threadgroup = (tpb, 1, 1)
-    (vals, out_ids) = _KERNEL_TOPK_L2(
-        inputs=[Q, X, ids, shape],
-        output_shapes=[(kk,), (kk,)],
-        output_dtypes=[Q.dtype, mx.int32],
-        grid=grid,
-        threadgroup=threadgroup,
-    )
-    return vals, out_ids
-
+                    from xlstm_solace_mlx.tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
 
 def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
     """Computes the top-k L2 distances and corresponding IDs for a batch of query vectors.
@@ -328,34 +300,7 @@ def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb:
     kk = int(min(k, 32))
     shape = mx.array([m, d, kk, b], dtype=mx.uint32)
     if tpb is None:
-        try:
-            from xlstm_solace_mlx.tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
-        except Exception:
-            _get_runtime_config = None
-        if _get_runtime_config is not None:
-            try:
-                rc = _get_runtime_config()
-                if rc.get("ivf_tpb") is not None:
-                    tpb = int(rc.get("ivf_tpb"))
-            except Exception:
-                tpb = None
-    if tpb is None:
-        limit = max(1, 1024 // max(1, kk))
-        base = (limit // 32) * 32
-        if base < 32: base = 32
-        if base > 256: base = 256
-        tpb = base
-    grid = (b, 1, 1)
-    threadgroup = (tpb, 1, 1)
-    (vals, out_ids) = _KERNEL_TOPK_L2_BATCH(
-        inputs=[Q, X, ids, shape],
-        output_shapes=[(b, kk), (b, kk)],
-        output_dtypes=[Q.dtype, mx.int32],
-        grid=grid,
-        threadgroup=threadgroup,
-    )
-    return vals, out_ids
-
+                    from xlstm_solace_mlx.tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
 
 def device_topk_merge(vals_parts: mx.array, ids_parts: mx.array, k: int) -> Tuple[mx.array, mx.array]:
     """Merges partial top-k results on the device.
@@ -383,7 +328,6 @@ def device_topk_merge(vals_parts: mx.array, ids_parts: mx.array, k: int) -> Tupl
         threadgroup=threadgroup,
     )
     return vals, ids
-
 
 def ivf_list_topk_l2_chunked(Q: mx.array, X: mx.array, ids: mx.array, k: int, rows_per_chunk: int = 4096, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
     """Computes top-k L2 distances for a single query by processing the data in chunks.
@@ -432,7 +376,6 @@ def ivf_list_topk_l2_chunked(Q: mx.array, X: mx.array, ids: mx.array, k: int, ro
 
     return best_vals, best_ids
 
-
 def ivf_list_topk_l2_chunked_device_merge(Q: mx.array, X: mx.array, ids: mx.array, k: int, rows_per_chunk: int = 4096, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
     """Computes top-k L2 distances for a single query with chunking and device-side merge.
 
@@ -471,7 +414,6 @@ def ivf_list_topk_l2_chunked_device_merge(Q: mx.array, X: mx.array, ids: mx.arra
     V = mx.stack(parts_vals)
     I = mx.stack(parts_ids)
     return device_topk_merge(V, I, k)
-
 
 __all__ = [
     "ivf_list_topk_l2",

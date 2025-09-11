@@ -1,7 +1,6 @@
 import mlx.core as mx
 import mlx.nn as nn
 
-
 class MultiHeadLayerNormMLX(nn.Module):
     """Multi‑Head LayerNorm in MLX (per head, over DH).
 

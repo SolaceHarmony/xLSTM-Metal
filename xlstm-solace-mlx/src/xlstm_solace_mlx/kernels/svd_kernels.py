@@ -24,12 +24,10 @@ def power_iter_step(A: mx.array, V: mx.array) -> mx.array:
     """Alias to the tiled Z-step for production: Z = Aᵀ (A V)."""
     return power_iter_step_tiled(A, V)
 
-
 __all__ = [
     "power_iter_step",
     "power_iter_step_tiled",
 ]
-
 
 def power_iter_step_tiled(A: mx.array, V: mx.array) -> mx.array:
     """Compute Z = Aᵀ (A V) using tiled GEMM kernels.

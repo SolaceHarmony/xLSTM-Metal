@@ -33,11 +33,7 @@ from __future__ import annotations
 from typing import Tuple
 import os
 import mlx.core as mx
-try:
     from tools.mlx_tuning import qr_dot_mode_default as _qr_mode_default
-except Exception:
-    _qr_mode_default = None
-
 _HEADER = """#include <metal_stdlib>\nusing namespace metal;\n"""
 
 _COL_DOT_SRC = r"""
@@ -118,7 +114,6 @@ _KERNEL_UPDATE = mx.fast.metal_kernel(
     ensure_row_contiguous=True,
 )
 
-
 def project_coeffs(Q: mx.array, v: mx.array) -> mx.array:
     """Compute c = Qᵀ v using a simple or simdgroup-optimized Metal kernel.
 
@@ -139,23 +134,7 @@ def project_coeffs(Q: mx.array, v: mx.array) -> mx.array:
     shape = mx.array([m, k], dtype=mx.uint32)
     mode = (os.environ.get("QR_DOT_MODE") or "auto").lower()
     # Runtime config takes precedence if provided
-    try:
-        from tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
-    except Exception:
-        _get_runtime_config = None
-    if _get_runtime_config is not None:
-        try:
-            rc = _get_runtime_config()
-            if rc.get("qr_dot_mode") is not None:
-                mode = str(rc.get("qr_dot_mode")).lower()
-        except Exception:
-            pass
-    if mode == "auto" and _qr_mode_default is not None:
-        try:
-            mode = _qr_mode_default()
-        except Exception:
-            pass
-    use_simd = (mode == "simd") or (mode == "auto" and m >= 512)
+            from tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
 
     if use_simd:
         WARP = 32
@@ -183,7 +162,6 @@ def project_coeffs(Q: mx.array, v: mx.array) -> mx.array:
             threadgroup=threadgroup,
         )
         return out
-
 
 def update_vector(Q: mx.array, c: mx.array, v: mx.array) -> mx.array:
     """Compute v_out = v − Q c using a Metal kernel with `fma` accumulation.
@@ -217,7 +195,6 @@ def update_vector(Q: mx.array, c: mx.array, v: mx.array) -> mx.array:
         threadgroup=threadgroup,
     )
     return out
-
 
 __all__ = [
     "project_coeffs",

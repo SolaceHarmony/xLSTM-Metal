@@ -7,7 +7,6 @@ from .components.slstm.block import sLSTMBlock
 from .components.util import repeat
 from .kernels.gemm_kernels import gemm_av
 
-
 class FastHead(nn.Module):
     """Final projection without nn.Linear (GEMM via mx.fast tiled kernel).
 

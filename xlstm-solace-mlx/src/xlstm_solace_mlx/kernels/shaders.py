@@ -19,7 +19,6 @@ import mlx.core as mx
 
 _HEADER = """#include <metal_stdlib>\nusing namespace metal;\n"""
 
-
 def _soft_cap_kernel():
     """Return a compiled body-only soft-cap kernel (cached per-process)."""
     src = r"""
@@ -41,7 +40,6 @@ def _soft_cap_kernel():
         ensure_row_contiguous=True,
     )
 
-
 def _memcpy_kernel():
     """Return a compiled body-only memcpy kernel (cached per-process)."""
     src = r"""
@@ -59,10 +57,8 @@ def _memcpy_kernel():
         ensure_row_contiguous=True,
     )
 
-
 _K_SOFTCAP = None
 _K_MEMCPY = None
-
 
 def soft_cap(x: mx.array, cap_value: float) -> mx.array:
     """Apply an elementwise soft cap: out = cap * tanh(x/cap).
@@ -89,7 +85,6 @@ def soft_cap(x: mx.array, cap_value: float) -> mx.array:
     )
     return out
 
-
 def memcpy(x: mx.array) -> mx.array:
     """Elementwise copy via a body-only Metal kernel.
 
@@ -109,7 +104,6 @@ def memcpy(x: mx.array) -> mx.array:
         threadgroup=(min(256, n) or 1, 1, 1),
     )
     return out
-
 
 __all__ = [
     "soft_cap",

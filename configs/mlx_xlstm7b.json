@@ -2,9 +2,7 @@
   "prompt": "Hello, world!",
   "max_new_tokens": 64,
 
-  "hf_tokenizer": "xlstm_7b_model",
-
-  "weights": "model_cache/xlstm_7b_mlx/model.safetensors",
+  "weights": "model_cache/xlstm_7b_mlx_converted.npz",
   "strict": 1,
 
   "vocab_size": 50304,
