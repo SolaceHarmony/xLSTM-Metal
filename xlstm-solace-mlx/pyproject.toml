@@ -41,4 +41,4 @@ include = [
 xlstm-mlx = "xlstm_solace_mlx.cli:main"
 
 [tool.setuptools.package-data]
-"xlstm_solace_mlx" = ["metal/*.metal"]
+"xlstm_solace_mlx" = ["metal/*.metal", "configs/*.json"]

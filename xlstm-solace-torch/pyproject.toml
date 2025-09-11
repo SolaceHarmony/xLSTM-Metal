@@ -40,3 +40,6 @@ where = ["src"]
 include = [
   "xlstm_solace_torch*",
 ]
+
+[tool.setuptools.package-data]
+"xlstm_solace_torch" = ["configs/*.json"]

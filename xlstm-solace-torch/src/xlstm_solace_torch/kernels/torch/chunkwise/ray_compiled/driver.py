@@ -31,7 +31,7 @@ except Exception:
     _RayInputNode = None  # type: ignore
 
 
-def _ensure_ray() -> bool:
+def _ensure_ray(*, local_mode: bool | None = None, dashboard: bool | None = None, dashboard_port: int | None = None) -> bool:
     """Ensure Ray is initialized. Returns True if this call started Ray.
 
     In local_mode=1 (default), Ray runs tasks/actors in-process and should not
@@ -43,15 +43,14 @@ def _ensure_ray() -> bool:
             "Ray is not installed. Install ray or select a non-ray chunkwise backend."
         )
     if not ray.is_initialized():
-        local_mode = os.environ.get("XLSTM_RAY_LOCAL_MODE", "1") == "1"
-        # Dashboard requested implies non-local mode
-        dash = os.environ.get("XLSTM_RAY_DASHBOARD", "0") == "1"
-        include_dashboard = dash and not local_mode
-        dash_port = int(os.environ.get("XLSTM_RAY_DASHBOARD_PORT", "8265"))
+        lm = local_mode if local_mode is not None else (os.environ.get("XLSTM_RAY_LOCAL_MODE", "1") == "1")
+        dash = dashboard if dashboard is not None else (os.environ.get("XLSTM_RAY_DASHBOARD", "0") == "1")
+        include_dashboard = dash and not lm
+        dport = dashboard_port if dashboard_port is not None else int(os.environ.get("XLSTM_RAY_DASHBOARD_PORT", "8265"))
         # Avoid extra background noise unless explicitly requested
-        kwargs = dict(ignore_reinit_error=True, local_mode=local_mode)
-        if not local_mode:
-            kwargs.update(dict(include_dashboard=include_dashboard, dashboard_port=dash_port))
+        kwargs = dict(ignore_reinit_error=True, local_mode=lm)
+        if not lm:
+            kwargs.update(dict(include_dashboard=include_dashboard, dashboard_port=dport))
         ray.init(**kwargs)  # type: ignore[arg-type]
         return True
     return False
@@ -284,13 +283,28 @@ def mlstm_chunkwise__ray_compiled_steps(
     **kwargs,
 ):
     _gpu_only_guard(q)
-    _ray_started_here = _ensure_ray()
+    # Runtime overrides from kwargs (JSON-driven)
+    heads_per_band = kwargs.pop("heads_per_band", None)
+    workers = kwargs.pop("workers", None)
+    streams = kwargs.pop("streams", None)
+    ray_local_mode = kwargs.pop("ray_local_mode", None)
+    ray_dashboard = kwargs.pop("ray_dashboard", None)
+    ray_dashboard_port = kwargs.pop("ray_dashboard_port", None)
+    mem_watchdog = kwargs.pop("mem_watchdog", None) or {}
+    warmup = kwargs.pop("warmup", None)
+    ray_async = kwargs.pop("ray_async", None)
+    ray_compiled_graph = kwargs.pop("ray_compiled_graph", None)
+    nsight = kwargs.pop("nsight", None)
+
+    _ray_started_here = _ensure_ray(local_mode=bool(ray_local_mode) if ray_local_mode is not None else None,
+                                    dashboard=bool(ray_dashboard) if ray_dashboard is not None else None,
+                                    dashboard_port=int(ray_dashboard_port) if ray_dashboard_port is not None else None)
 
     B, NH, S, DHQK = q.shape
     DHHV = v.shape[-1]
 
     # Warm-up a tiny step compile to avoid mid-run overhead
-    if os.environ.get("XLSTM_MPS_WARMUP", "1") != "0":
+    if (warmup is None and os.environ.get("XLSTM_MPS_WARMUP", "1") != "0") or bool(warmup):
         try:
             _ = mlstm_recurrent_step__metal(
                 q[:, :1, 0], k[:, :1, 0], v[:, :1, 0], i[:, :1, 0:1], f[:, :1, 0:1],
@@ -305,7 +319,7 @@ def mlstm_chunkwise__ray_compiled_steps(
     h_out = torch.empty(B, NH, S, DHHV, device=q.device, dtype=q.dtype)
 
     # Partition by head bands, then run per-band actors over the full sequence in chunk tiles
-    heads_per_band = int(os.environ.get("XLSTM_MPS_HEADS_PER_BAND", "4"))
+    heads_per_band = int(heads_per_band) if heads_per_band is not None else int(os.environ.get("XLSTM_MPS_HEADS_PER_BAND", "4"))
     bands = []
     for hs in range(0, NH, max(1, heads_per_band)):
         he = min(NH, hs + heads_per_band)
@@ -321,28 +335,22 @@ def mlstm_chunkwise__ray_compiled_steps(
             if k in (
                 "PYTORCH_ENABLE_MPS_FALLBACK",
                 "TOKENIZERS_PARALLELISM",
-                "XLSTM_MEM_WATCHDOG",
-                "XLSTM_MEM_POLL_MS",
-                "XLSTM_MEM_SOFT_PCT",
-                "XLSTM_MEM_HARD_PCT",
-                "XLSTM_MEM_SOFT_MB",
-                "XLSTM_MEM_HARD_MB",
-                "XLSTM_MEM_ACTION",
+                # Memory is controlled via passed config; we avoid env propagation
             )
         },
     }
     # Optional Nsight profiling: pass through if requested
-    nsight_prof = os.environ.get("XLSTM_RAY_NSIGHT")
+    nsight_prof = nsight if nsight is not None else os.environ.get("XLSTM_RAY_NSIGHT")
     if nsight_prof:
         try:
             _actor_runtime_env["nsight"] = nsight_prof  # type: ignore[index]
         except Exception:
             pass
-    use_async = os.environ.get("XLSTM_RAY_ASYNC", "0") == "1"
+    use_async = bool(ray_async) if ray_async is not None else (os.environ.get("XLSTM_RAY_ASYNC", "0") == "1")
     ActorClass = HeadBandWorkerAsync if use_async else HeadBandWorker
     # Optionally prebuild Ray Compiled Graphs (beta) per actor for the steady-state chunk size
-    use_async = os.environ.get("XLSTM_RAY_ASYNC", "0") == "1"
-    use_cgraph = os.environ.get("XLSTM_RAY_COMPILED_GRAPH", "0") == "1" and _RayInputNode is not None
+    use_async = bool(ray_async) if ray_async is not None else (os.environ.get("XLSTM_RAY_ASYNC", "0") == "1")
+    use_cgraph = (bool(ray_compiled_graph) if ray_compiled_graph is not None else (os.environ.get("XLSTM_RAY_COMPILED_GRAPH", "0") == "1")) and _RayInputNode is not None
     ActorClass = HeadBandWorkerAsync if use_async else HeadBandWorker
     compiled_graphs: dict[tuple[int, int], object] = {}
     for hs, he in bands:
@@ -367,8 +375,13 @@ def mlstm_chunkwise__ray_compiled_steps(
 
     # Memory watchdog (no runtime chunk-size changes to preserve canonical behavior)
     monitor: MemoryMonitor | None = None
-    if os.environ.get("XLSTM_MEM_WATCHDOG", "1") == "1":
-        monitor = MemoryMonitor().start()
+    if mem_watchdog or os.environ.get("XLSTM_MEM_WATCHDOG", "1") == "1":
+        mw = mem_watchdog or {}
+        monitor = MemoryMonitor(
+            poll_ms=int(mw.get("poll_ms", 200)) if mw.get("poll_ms") is not None else None,
+            soft_mb=float(mw.get("soft_mb")) if mw.get("soft_mb") is not None else None,
+            hard_mb=float(mw.get("hard_mb")) if mw.get("hard_mb") is not None else None,
+        ).start()
 
     # Dispatch incrementally: at most one inflight chunk per actor, reschedule on completion.
     pending: list[tuple[int, int, int, int, object]] = []

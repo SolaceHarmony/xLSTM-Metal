@@ -72,6 +72,9 @@ def main(argv: Optional[list[str]] = None) -> None:
     # Benchmarking / stats
     ap.add_argument("--stats-log", type=str, default=None, help="Optional CSV file to log per-step decode timing (step,elapsed_s,tok_s)")
     ap.add_argument("--stats-every", type=int, default=1, help="Log every N decode steps (default 1)")
+    ap.add_argument("--print-config", action="store_true", help="Print effective model/runtime config and exit")
+    ap.add_argument("--profile", type=str, default=None, help="Profile name under ./configs (e.g., mlx_hardware_params)")
+    ap.add_argument("--config", type=str, default=None, help="Optional JSON file with runtime overrides")
     args = ap.parse_args(argv)
 
     # Apply runtime config
@@ -99,8 +102,66 @@ def main(argv: Optional[list[str]] = None) -> None:
         tok = ByteTokenizer()
         vocab_size = int(args.vocab_size)
 
+    # JSON config overlays (defaults → profile → --config)
+    def _load_json(fp):
+        try:
+            import json as _json
+            from pathlib import Path as _P
+            p = _P(fp)
+            if not p.exists():
+                return {}
+            return _json.loads(p.read_text())
+        except Exception:
+            return {}
+    base = _load_json("configs/mlx_hardware_params.json")
+    prof = {}
+    if args.profile:
+        from pathlib import Path as _P
+        prof = _load_json(str((_P("configs") / f"{args.profile}.json"))) or (lambda: __import__('importlib.resources').resources.files('xlstm_solace_mlx.configs').joinpath('mlx_golden.json').read_text())()
+    cfg_file = _load_json(args.config) if args.config else {}
+    merged = {}
+    try:
+        # Try packaged golden when no explicit profile provided and base is empty
+        if not args.profile and not base:
+            import importlib.resources as ir
+            with ir.files('xlstm_solace_mlx.configs').joinpath('mlx_golden.json').open('r') as f:
+                import json as _json
+                merged.update(_json.load(f))
+    except Exception:
+        pass
+    for d in (base, prof, cfg_file):
+        merged.update({k: v for k, v in d.items() if v is not None})
+    # Map merged into runtime config
+    try:
+        from .tools.mlx_runtime import configure_gemm, configure_qr, configure_model
+        if "gemm_pad" in merged or "gemm_align_execw" in merged or "gemm_double_buffer" in merged:
+            configure_gemm(
+                pad=merged.get("gemm_pad"),
+                align_execw=merged.get("gemm_align_execw"),
+                double_buffer=merged.get("gemm_double_buffer"),
+            )
+        if "qr_dot_mode" in merged:
+            configure_qr(dot_mode=merged.get("qr_dot_mode"))
+        if "fast_head" in merged:
+            configure_model(fast_head=merged.get("fast_head"))
+    except Exception:
+        pass
+
     # Model
     sig = tuple(int(x) for x in args.signature.split(","))
+    if args.print_config:
+        eff = {
+            "vocab_size": vocab_size,
+            "layers": int(args.layers),
+            "signature": sig,
+            "model_dim": int(args.model_dim),
+            "head_dim": int(args.head_dim),
+            "heads": int(args.heads),
+            "runtime": merged
+        }
+        import json as _json
+        print(_json.dumps(eff, indent=2))
+        return
     model = create_xlstm_model(
         vocab_size=vocab_size,
         num_layers=int(args.layers),
@@ -198,4 +259,3 @@ def main(argv: Optional[list[str]] = None) -> None:
 if __name__ == "__main__":
     os.environ.setdefault("XLSTM_MLX_FAST_HEAD", "1")
     main()
-

@@ -42,7 +42,7 @@ from transformers import AutoTokenizer
 import gc
 
 from xlstm_solace_torch.models.model import xLSTMSolaceTorch as xLSTMLarge
-from scripts.run_local_xlstm_mps import load_local_config, load_local_weights
+from xlstm_generate_pt import load_local_config, load_local_weights
 
 
 @torch.no_grad()
@@ -237,7 +237,7 @@ def optimize_random(
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--backend", type=str, choices=["ray", "queued"], default="ray")
-    ap.add_argument("--config", type=str, default=None, help="Optional JSON config with tunables to override CLI")
+    ap.add_argument("--config", type=str, default=None, help="JSON config file (preferred). If omitted, tries configs/experiment_<backend>16k.json")
     ap.add_argument("--model_path", type=str, default=None)
     ap.add_argument("--prompt", type=str, default=None)
     ap.add_argument("--prompt-file", type=str, default=None)
@@ -248,7 +248,7 @@ def main():
     ap.add_argument("--trials", type=int, default=20)
     ap.add_argument("--repeats", type=int, default=1)
     ap.add_argument("--seed", type=int, default=1337)
-    ap.add_argument("--log-dir", type=str, default="runs/mps_opt")
+    ap.add_argument("--log-dir", type=str, default="scripts/optimizer/runs")
     ap.add_argument("--tag", type=str, default="")
     # Bounds
     ap.add_argument("--heads-min", type=int, default=2)
@@ -264,21 +264,29 @@ def main():
 
     assert torch.backends.mps.is_available(), "MPS not available"
 
-    # Load JSON config (if provided) to override args
+    # Load JSON config (config-first). If not provided, try a backend-default under ./configs
+    cfg_used: dict = {}
     if args.config:
         cfg_path = Path(args.config)
         assert cfg_path.exists(), f"Config not found: {cfg_path}"
-        cfg = json.loads(cfg_path.read_text())
-        # Unbounded overrides: apply any keys present
-        for k, v in cfg.items():
-            # Flatten simple top-level keys that match argparse names
+        cfg_used = json.loads(cfg_path.read_text())
+    else:
+        # Guess a default config under optimizer configs
+        guess = Path("scripts/optimizer/configs") / f"experiment_{args.backend}16k.json"
+        if guess.exists():
+            cfg_used = json.loads(guess.read_text())
+            args.config = str(guess)
+        else:
+            raise SystemExit("--config is required (no default optimizer config found under ./configs)")
+
+    # Apply config into argparse args
+    for k, v in cfg_used.items():
+        if hasattr(args, k):
+            setattr(args, k, v)
+    if isinstance(cfg_used.get("optimizer"), dict):
+        for k, v in cfg_used["optimizer"].items():
             if hasattr(args, k):
                 setattr(args, k, v)
-        # Also accept nested optimizer block
-        if isinstance(cfg.get("optimizer"), dict):
-            for k, v in cfg["optimizer"].items():
-                if hasattr(args, k):
-                    setattr(args, k, v)
 
     # Required after config application
     assert args.backend in {"ray", "queued"}, "backend must be 'ray' or 'queued' (via --backend or config)"
@@ -305,7 +313,7 @@ def main():
     run_dir = Path(args.log_dir) / f"{args.backend}_{ts}{tag}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    # Write run metadata
+    # Write run metadata (effective configuration snapshot)
     meta = {
         "backend": args.backend,
         "model_path": args.model_path,
@@ -322,6 +330,9 @@ def main():
             "workers": [args.workers_min, args.workers_max],
         },
         "seed": args.seed,
+        "config_file": args.config,
+        "config_source": cfg_used,
+        "effective_args": {k: (getattr(args, k)) for k in vars(args).keys()},
     }
     (run_dir / "run_meta.json").write_text(json.dumps(meta, indent=2))
     trials_path = run_dir / "trials.jsonl"
@@ -375,7 +386,13 @@ def main():
             scored.sort(key=lambda pm: pm[1]["decode_tok_s"], reverse=True)
             if best_m is None or scored[0][1]["decode_tok_s"] > best_m["decode_tok_s"]:
                 best_p, best_m = scored[0]
-                best_path.write_text(json.dumps({"params": best_p, "metrics": best_m}, indent=2))
+                snap = {"params": best_p, "metrics": best_m}
+                best_path.write_text(json.dumps(snap, indent=2))
+                # Also copy to curated best folder
+                best_dir = Path("scripts/optimizer/best")
+                best_dir.mkdir(parents=True, exist_ok=True)
+                (best_dir / f"{args.backend}_latest.json").write_text(json.dumps(snap, indent=2))
+                (best_dir / f"{args.backend}_{ts}.json").write_text(json.dumps(snap, indent=2))
             keep = max(1, int(0.3 * args.population))
             elites = [p for p, _ in scored[:keep]]
             new_pop = elites.copy()
@@ -393,7 +410,12 @@ def main():
             log_trial(p, m)
             if best_m is None or m["decode_tok_s"] > best_m["decode_tok_s"]:
                 best_p, best_m = p, m
-                best_path.write_text(json.dumps({"params": best_p, "metrics": best_m}, indent=2))
+                snap = {"params": best_p, "metrics": best_m}
+                best_path.write_text(json.dumps(snap, indent=2))
+                best_dir = Path("scripts/optimizer/best")
+                best_dir.mkdir(parents=True, exist_ok=True)
+                (best_dir / f"{args.backend}_latest.json").write_text(json.dumps(snap, indent=2))
+                (best_dir / f"{args.backend}_{ts}.json").write_text(json.dumps(snap, indent=2))
             print(f"[trial {t+1}/{args.trials}] decode={m['decode_tok_s']:.2f} tok/s params={p}")
 
     print("\n=== Best Configuration ===")

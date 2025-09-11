@@ -12,17 +12,11 @@ Repository Structure (High-level)
     - `native_sequence/`: pure-PyTorch sequence loop.
   - `parallel/`: fully-parallel (quadratic) kernels for analysis/experiments.
 
-- `xlstm_official_full/`
-  - `xlstm_large/`: standalone xLSTM Large model and config (requires `mlstm_kernels`).
-  - `blocks/slstm/`: sLSTM implementation; includes compiled backend for MPS.
+- `xlstm-solace-torch/src/xlstm_solace_torch/*` – Solace Torch package (model, kernels, Ray orchestration)
+- `xlstm-solace-mlx/src/xlstm_solace_mlx/*` – Solace MLX package (model/components, CLI)
 
 - `scripts/`
-  - `runners/`: run/train/infer entrypoints (Ray default chunkwise backend).
-    - `run_local_xlstm_mps.py`: run local HF checkpoint on MPS.
-    - `run_hf_xlstm_metal.py`: run HF model id on MPS.
-  - `benchmarks/`: throughput/latency harnesses.
-  - `downloads/`: checkpoint acquisition.
-  - `debug/`, `checks/`, `build/`, `experiments/`.
+  - Production tools only (optimizer, monitor, downloads, checks). Legacy runners/benchmarks/experiments moved under `lab/<date>-*/`.
 
 - `implementations/`
   - `pytorch/`, `metal/`, `mlx/`: organized legacy/reference implementations (top‑level import shims preserved).
@@ -31,7 +25,11 @@ Repository Structure (High-level)
   - Archived experiments, notes, and demos; not wired into production runners.
 
 Notes
-- Root-level `xlstm_*.py` files are legacy shims that re-export from `implementations/...` to avoid breaking older imports.
+- JSON runtime configs live in `configs/` and drive production settings. Torch runner layering:
+  1) `configs/runtime_defaults.json`
+  2) Auto-picked newest profile by backend (e.g., `*ray*.json` or `*queued*.json`), unless `--profile` is provided
+  3) Optional `--config <path>`
+  4) CLI flags
 - See `docs/REPO_HYGIENE.md` for a production vs experiments overview.
 
 - `tools/`

@@ -81,6 +81,8 @@ class mLSTMBackendConfig:
     """Epsilon value for numerical stability in the kernel."""
     inference_state_dtype: DtypeType = "float32"
     """The dtype to use for the state tensors in inference mode."""
+    # Runtime/scheduling options (passed to kernels; avoid envs in production)
+    runtime_opts: dict | None = None
 
     def __post_init__(self):
         if self.return_last_states and "parallel" in self.chunkwise_kernel:
@@ -108,6 +110,7 @@ class mLSTMBackend(nn.Module):
         self.sequence_kernel_fn = get_mlstm_sequence_kernel(config.sequence_kernel)
         self.step_kernel_fn = get_mlstm_step_kernel(config.step_kernel)
 
+        ropts = config.runtime_opts or {}
         self._inference_fn = partial(
             wrap_chunkwise__arbitrary_sequence_length,
             mlstm_chunkwise_kernel=self.chunkwise_kernel_fn,
@@ -123,6 +126,7 @@ class mLSTMBackend(nn.Module):
             eps=config.eps,
             autocast_kernel_dtype=getattr(torch, config.autocast_kernel_dtype),
             return_last_states=True,
+            **ropts,
         )
 
         train_kernel_fn = partial(

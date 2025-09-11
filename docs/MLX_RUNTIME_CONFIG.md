@@ -40,14 +40,17 @@ model = create_xlstm_model(
 )
 ```
 
-## CLI Integration
+## CLI Integration (Solace MLX)
 
-Both scripts accept runtime flags so you don’t need envs:
+Use the Solace MLX CLI which layers JSON profiles from `configs/`:
 
-- `scripts/run_local_xlstm_mlx.py`
-  - `--gemm-pad 1 --gemm-align-execw 1 --gemm-double-buffer 1 --qr-dot-mode simd`
-- `scripts/benchmarks/run_mlx_benchmarks.py`
-  - `--gemm-pad 1 --gemm-align-execw 1 --gemm-double-buffer 1 --qr-dot-mode simd --ivf-tpb 128`
+```bash
+PYTHONPATH=.:xlstm-solace-mlx/src python -m xlstm_solace_mlx.cli \
+  --prompt "Hello" --max_new_tokens 16 \
+  --profile mlx_hardware_params --print-config
+```
+
+Profile layering: `configs/mlx_hardware_params.json` → optional `--profile` JSON → optional `--config` JSON → CLI flags.
 
 ## Precedence
 

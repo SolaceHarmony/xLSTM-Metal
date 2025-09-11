@@ -116,7 +116,8 @@ def load_local_weights(model_dir: Path) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model_path", type=str, default="./xlstm_7b_model")
-    ap.add_argument("--config", type=str, default=None, help="Optional JSON config to override CLI args")
+    ap.add_argument("--config", type=str, default=None, help="Optional JSON file of runtime overrides (path)")
+    ap.add_argument("--profile", type=str, default=None, help="Profile name under ./configs (e.g., experiment_ray16k, tunables_ray16k)")
     ap.add_argument("--prompt", type=str, default=None, help="Inline prompt text (use --prompt-file for long context)")
     ap.add_argument("--prompt-file", type=str, default=None, help="Path to a prompt text file")
     ap.add_argument("--max_new_tokens", type=int, default=20)
@@ -148,77 +149,151 @@ def main():
     ap.add_argument("--ray-dashboard-port", type=int, default=8265, help="Ray dashboard port (default 8265)")
     ap.add_argument("--ray-local-mode", type=int, default=None, choices=[0,1], help="Set Ray local_mode explicitly (1=in-process, 0=multiprocess)")
     ap.add_argument("--ray-keep-alive", action="store_true", help="Keep Ray head running after run (dashboard stays up)")
+    # Dry-run / visibility
+    ap.add_argument("--print-effective-config", action="store_true", help="Print the effective runtime + backend config and exit")
     args = ap.parse_args()
 
-    # Apply runtime defaults if present (non-intrusive):
-    # - configs/runtime_defaults.json can specify friendly defaults so humans don’t need long CLI flags
-    # - Precedence: CLI > --config file > runtime_defaults.json
-    def _apply_runtime_defaults(args_obj):
+    # JSON configuration loader and overlay
+    def _load_json(fp):
         try:
-            from pathlib import Path as _Path
             import json as _json
-            dflt = _Path("configs/runtime_defaults.json")
-            if not dflt.exists():
-                return
-            cfg = _json.loads(dflt.read_text())
-            # Only apply when not already specified by CLI / config
-            def set_if_none(attr, key):
-                if getattr(args_obj, attr, None) is None and key in cfg:
-                    setattr(args_obj, attr, cfg[key])
-            # Runner knobs
-            set_if_none("chunk_size", "chunk_size")
-            set_if_none("heads_per_band", "heads_per_band")
-            set_if_none("workers", "workers")
-            set_if_none("streams", "streams")
-            set_if_none("chunkwise_backend", "chunkwise_backend")
-            set_if_none("ray_local_mode", "ray_local_mode")
-            if getattr(args_obj, "ray_dashboard", False) is False and cfg.get("ray_dashboard"):
-                args_obj.ray_dashboard = bool(cfg.get("ray_dashboard"))
-            # Memory watchdog defaults (env-based)
-            os.environ.setdefault("XLSTM_MEM_WATCHDOG", "1")
-            for k_cfg, k_env in [
-                ("mem_poll_ms", "XLSTM_MEM_POLL_MS"),
-                ("mem_soft_pct", "XLSTM_MEM_SOFT_PCT"),
-                ("mem_hard_pct", "XLSTM_MEM_HARD_PCT"),
-                ("mem_soft_mb", "XLSTM_MEM_SOFT_MB"),
-                ("mem_hard_mb", "XLSTM_MEM_HARD_MB"),
-                ("mem_action", "XLSTM_MEM_ACTION"),
-            ]:
-                if k_cfg in cfg and os.environ.get(k_env) is None:
-                    os.environ[k_env] = str(cfg[k_cfg])
+            from pathlib import Path as _P
+            p = _P(fp)
+            if not p.exists():
+                return {}
+            return _json.loads(p.read_text())
         except Exception:
-            # Never break runs due to config
-            pass
+            return {}
 
-    # Load JSON config (if provided) to override args
-    if args.config:
-        cfg_path = Path(args.config)
-        assert cfg_path.exists(), f"Config not found: {cfg_path}"
-        cfg = json.loads(cfg_path.read_text())
-        # Allowed keys to override
-        overrides = {
-            "model_path": "model_path",
-            "prompt": "prompt",
-            "max_new_tokens": "max_new_tokens",
-            "workers": "workers",
-            "heads_per_band": "heads_per_band",
-            "streams": "streams",
-            "chunk_size": "chunk_size",
-            "chunkwise_backend": "chunkwise_backend",
+    def _apply_runtime_overrides(args_obj):
+        """Apply JSON runtime defaults and profiles into args/env/mcfg.
+        Precedence (lowest→highest): runtime_defaults.json → profile → --config → CLI
+        """
+        # Base defaults
+        base = _load_json("configs/runtime_defaults.json")
+        # Named profile under package or ./configs, or auto-pick latest matching backend if not provided
+        prof = {}
+        from pathlib import Path as _P
+        cfg_dir = _P("configs")
+        # Helper: load packaged golden profile
+        def _load_packaged_profile(backend: str) -> dict:
+            try:
+                import importlib.resources as ir
+                pkg = 'xlstm_solace_torch.configs'
+                fname = 'golden_ray.json' if 'ray' in backend else 'golden_queued.json'
+                with ir.files(pkg).joinpath(fname).open('r') as f:
+                    import json as _json
+                    return _json.load(f)
+            except Exception:
+                return {}
+        if args_obj.profile:
+            cand = cfg_dir / f"{args_obj.profile}.json"
+            prof = _load_json(str(cand)) or _load_packaged_profile(args_obj.profile)
+        else:
+            try:
+                backend = (args_obj.chunkwise_backend or base.get("chunkwise_backend") or "ray_compiled_steps")
+                # Prefer packaged golden, then newest matching in ./configs
+                prof = _load_packaged_profile(backend)
+                if not prof:
+                    patt = "*ray*.json" if "ray" in str(backend) else "*queued*.json"
+                    candidates = sorted(cfg_dir.glob(patt), key=lambda p: p.stat().st_mtime, reverse=True)
+                    if candidates:
+                        prof = _load_json(str(candidates[0]))
+            except Exception:
+                pass
+        # Explicit config path
+        cfg_file = _load_json(args_obj.config) if args_obj.config else {}
+
+        # Merge dictionaries
+        merged = {}
+        for d in (base, prof, cfg_file):
+            merged.update({k: v for k, v in d.items() if v is not None})
+
+        # Apply into args when CLI not explicitly set
+        def maybe_set(attr, key):
+            if getattr(args_obj, attr, None) in (None, False):
+                if key in merged:
+                    setattr(args_obj, attr, merged[key])
+        for a, k in [
+            ("chunk_size", "chunk_size"),
+            ("heads_per_band", "heads_per_band"),
+            ("workers", "workers"),
+            ("streams", "streams"),
+            ("chunkwise_backend", "chunkwise_backend"),
+            ("ray_local_mode", "ray_local_mode"),
+        ]:
+            maybe_set(a, k)
+        if not getattr(args_obj, "ray_dashboard", False) and merged.get("ray_dashboard"):
+            args_obj.ray_dashboard = bool(merged.get("ray_dashboard"))
+
+        # Environment overlays
+        os.environ.setdefault("XLSTM_MEM_WATCHDOG", "1")
+        env_map = {
+            "mem_poll_ms": "XLSTM_MEM_POLL_MS",
+            "mem_soft_pct": "XLSTM_MEM_SOFT_PCT",
+            "mem_hard_pct": "XLSTM_MEM_HARD_PCT",
+            "mem_soft_mb": "XLSTM_MEM_SOFT_MB",
+            "mem_hard_mb": "XLSTM_MEM_HARD_MB",
+            "mem_action": "XLSTM_MEM_ACTION",
         }
-        for k_src, k_dst in overrides.items():
-            if k_src in cfg and getattr(args, k_dst if k_dst != "max_new_tokens" else "max_new_tokens", None) is not None:
-                setattr(args, k_dst if k_dst != "max_new_tokens" else "max_new_tokens", cfg[k_src])
+        for k, env in env_map.items():
+            if k in merged and os.environ.get(env) is None:
+                os.environ[env] = str(merged[k])
 
-    # Finally, gently apply runtime defaults for anything still unspecified
-    _apply_runtime_defaults(args)
+    # Apply runtime JSON overlays (defaults → profile → --config)
+    _apply_runtime_overrides(args)
 
     model_dir = Path(args.model_path)
+    # Load config and model (allow dry-run without model dir)
+    if model_dir.is_dir():
+        base_cfg_path = model_dir / "config.json"
+    else:
+        base_cfg_path = None
+    if base_cfg_path and base_cfg_path.exists():
+        mcfg = load_local_config(base_cfg_path)
+    else:
+        # minimal synthetic config for dry-run printing
+        mcfg = xLSTMSolaceTorchConfig(
+            embedding_dim=2048,
+            num_heads=32,
+            num_blocks=24,
+            vocab_size=50257,
+        )
+    # Early print-and-exit for visibility
+    if args.print_effective_config:
+        eff = {
+            "chunkwise_kernel": getattr(mcfg, "chunkwise_kernel", None),
+            "sequence_kernel": getattr(mcfg, "sequence_kernel", None),
+            "step_kernel": getattr(mcfg, "step_kernel", None),
+            "chunk_size": getattr(mcfg, "chunk_size", None),
+            "mode": getattr(mcfg, "mode", None),
+            "return_last_states": getattr(mcfg, "return_last_states", None),
+            "autocast_kernel_dtype": getattr(mcfg, "autocast_kernel_dtype", None),
+            "inference_state_dtype": getattr(mcfg, "inference_state_dtype", None),
+            "env": {
+                k: os.environ.get(k) for k in [
+                    "XLSTM_CHUNKWISE_BACKEND",
+                    "XLSTM_MPS_HEADS_PER_BAND",
+                    "XLSTM_MPS_STREAMS",
+                    "XLSTM_MPS_WORKERS",
+                    "XLSTM_RAY_LOCAL_MODE",
+                    "XLSTM_RAY_DASHBOARD",
+                    "XLSTM_RAY_DASHBOARD_PORT",
+                    "XLSTM_MEM_WATCHDOG",
+                    "XLSTM_MEM_POLL_MS",
+                    "XLSTM_MEM_SOFT_PCT",
+                    "XLSTM_MEM_HARD_PCT",
+                    "XLSTM_MEM_SOFT_MB",
+                    "XLSTM_MEM_HARD_MB",
+                    "XLSTM_MEM_ACTION",
+                ]
+            }
+        }
+        print(json.dumps(eff, indent=2))
+        return
+
     assert model_dir.is_dir(), f"Not a directory: {model_dir}"
     assert torch.backends.mps.is_available(), "MPS not available; requires Apple Silicon."
-
-    # Load config and model
-    mcfg = load_local_config(model_dir / "config.json")
     # Auto-apply last optimizer best.json unless disabled
     if os.environ.get("XLSTM_USE_BEST", "1") == "1":
         try:
@@ -280,41 +355,38 @@ def main():
         bos = torch.tensor([[tokenizer.bos_token_id]], device=device, dtype=inputs.dtype)
         inputs = torch.cat([bos, inputs], dim=1)
 
-    # Optional tuning knobs for queued/Ray schedulers
+    # Optional tuning knobs for queued/Ray schedulers (no envs; pass via runtime_opts)
+    mcfg.runtime_opts = getattr(mcfg, "runtime_opts", {}) or {}
     if args.workers is not None:
-        os.environ["XLSTM_MPS_WORKERS"] = str(args.workers)
+        mcfg.runtime_opts["workers"] = int(args.workers)
     if args.heads_per_band is not None:
-        os.environ["XLSTM_MPS_HEADS_PER_BAND"] = str(args.heads_per_band)
+        mcfg.runtime_opts["heads_per_band"] = int(args.heads_per_band)
     if args.streams is not None:
-        os.environ["XLSTM_MPS_STREAMS"] = str(args.streams)
+        mcfg.runtime_opts["streams"] = int(args.streams)
 
-    # Memory watchdog envs (drivers respect these). Also start optional global logger.
+    # Memory watchdog config to runtime_opts
+    mw = {}
     if args.mem_soft_pct is not None:
-        os.environ["XLSTM_MEM_SOFT_PCT"] = str(args.mem_soft_pct)
+        mw["soft_pct"] = float(args.mem_soft_pct)
     if args.mem_hard_pct is not None:
-        os.environ["XLSTM_MEM_HARD_PCT"] = str(args.mem_hard_pct)
+        mw["hard_pct"] = float(args.mem_hard_pct)
     if args.mem_soft_mb is not None:
-        os.environ["XLSTM_MEM_SOFT_MB"] = str(args.mem_soft_mb)
+        mw["soft_mb"] = float(args.mem_soft_mb)
     if args.mem_hard_mb is not None:
-        os.environ["XLSTM_MEM_HARD_MB"] = str(args.mem_hard_mb)
+        mw["hard_mb"] = float(args.mem_hard_mb)
     if args.mem_every is not None:
-        os.environ["XLSTM_MEM_POLL_MS"] = str(max(50, args.mem_every))
+        mw["poll_ms"] = int(max(50, args.mem_every))
     if args.mem_action is not None:
-        os.environ["XLSTM_MEM_ACTION"] = args.mem_action
-    # Runtime chunk shrinking is not supported; chunk size remains fixed during a run.
-    # Enable watchdog by default when logging is requested
-    if args.mem_log:
-        os.environ.setdefault("XLSTM_MEM_WATCHDOG", "1")
-    # Ray dashboard / lifecycle envs
+        mw["action"] = str(args.mem_action)
+    if mw:
+        mcfg.runtime_opts["mem_watchdog"] = mw
+    # Ray dashboard / lifecycle opts
     if args.ray_local_mode is not None:
-        os.environ["XLSTM_RAY_LOCAL_MODE"] = "1" if args.ray_local_mode == 1 else "0"
+        mcfg.runtime_opts["ray_local_mode"] = int(args.ray_local_mode)
     if args.ray_dashboard:
-        os.environ["XLSTM_RAY_DASHBOARD"] = "1"
-        # Dashboard implies non-local mode unless user overrode
-        os.environ.setdefault("XLSTM_RAY_LOCAL_MODE", "0")
-    os.environ["XLSTM_RAY_DASHBOARD_PORT"] = str(int(args.ray_dashboard_port))
-    # Ensure Ray cleans up unless the user wants to keep the dashboard alive
-    os.environ["XLSTM_RAY_AUTOSHUTDOWN"] = "0" if args.ray_keep_alive else os.environ.get("XLSTM_RAY_AUTOSHUTDOWN", "1")
+        mcfg.runtime_opts["ray_dashboard"] = True
+        mcfg.runtime_opts["ray_dashboard_port"] = int(args.ray_dashboard_port)
+    mcfg.runtime_opts["ray_keep_alive"] = bool(args.ray_keep_alive)
 
     print("Generating ...")
     import time

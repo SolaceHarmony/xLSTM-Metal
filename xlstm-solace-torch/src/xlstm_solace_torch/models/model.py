@@ -108,6 +108,8 @@ class xLSTMSolaceTorchConfig:
     Mode 'fused' uses a single weight matrix for the query, key, value, and gates.
     'fused' is benefitial in inference settings.
     """
+    # Runtime/scheduling options for kernels (Solace production)
+    runtime_opts: dict = field(default_factory=dict)
 
 
 class xLSTMSolaceTorch(nn.Module):
@@ -314,6 +316,7 @@ class mLSTMBlock(nn.Module):
                     autocast_kernel_dtype=config.autocast_kernel_dtype,
                     eps=config.eps,
                     inference_state_dtype=config.inference_state_dtype,
+                    runtime_opts=config.runtime_opts,
                 ),
             )
         )

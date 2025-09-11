@@ -26,6 +26,7 @@ def wrap_chunkwise__arbitrary_sequence_length(
     autocast_kernel_dtype: torch.dtype = torch.bfloat16,
     chunk_size: int = 64,
     enable_logging: bool = False,
+    **runtime_kwargs,
 ) -> (
     torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ):  # matH (B, NH, S, DHHV), tuple[matC_state_last (B, NH, DHQK, DHHV), vecN_states_last (B, NH, DHQK), scaMinter_states_last (B, NH, 1)]
@@ -129,8 +130,8 @@ def wrap_chunkwise__arbitrary_sequence_length(
                 q=q[..., seq_len_start_idx:seq_len_idx, :].contiguous(),
                 k=k[..., seq_len_start_idx:seq_len_idx, :].contiguous(),
                 v=v[..., seq_len_start_idx:seq_len_idx, :].contiguous(),
-                f=f[..., seq_len_start_idx:seq_len_idx].contiguous(),
                 i=i[..., seq_len_start_idx:seq_len_idx].contiguous(),
+                f=f[..., seq_len_start_idx:seq_len_idx].contiguous(),
                 c_initial=c_state,
                 n_initial=n_state,
                 m_initial=m_state,
@@ -138,6 +139,7 @@ def wrap_chunkwise__arbitrary_sequence_length(
                 return_last_states=True,
                 autocast_kernel_dtype=autocast_kernel_dtype,
                 eps=eps,
+                **runtime_kwargs,
             )
             seq_len_start_idx += iter_seq_len
             h_outs.append(h_out)

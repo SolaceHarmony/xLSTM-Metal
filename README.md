@@ -58,13 +58,11 @@ Unique scheduling: heads are split into bands and sequences into small chunks (d
 
 Quick start (local HF checkpoint, conda base):
 ```bash
-PYTORCH_ENABLE_MPS_FALLBACK=0 PYTHONPATH=. \
-conda run -n base python scripts/run_local_xlstm_mps.py \
+PYTORCH_ENABLE_MPS_FALLBACK=0 PYTHONPATH=.:xlstm-solace-torch/src \
+conda run -n base python xlstm_generate_pt.py \
   --model_path ./xlstm_7b_model \
   --prompt "The capital of France is" \
-  --max_new_tokens 32 \
-  --chunkwise-backend ray_compiled_steps \
-  --chunk-size 64 --heads-per-band 4
+  --max_new_tokens 32
 ```
 
 Tuning knobs (MPS): `chunk_size`, `heads_per_band`, `workers`, optional `streams`. See `docs/TUNING_GUIDE.md`.
