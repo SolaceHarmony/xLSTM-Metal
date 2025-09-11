@@ -1,7 +1,7 @@
 import mlx.core as mx
 import mlx.nn as nn
 
-from .util import CausalConv1d, enlarge_as, clamp
+from ..util import CausalConv1d, enlarge_as, clamp
 
 class mLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers):
@@ -126,29 +126,33 @@ class mLSTMBlock(nn.Module):
         i = mx.exp(i_t - m_t)
         f = mx.exp(f_t + m_tm1 - m_t)
 
-        for i in range(self.head_num):
-            v_i = v[:, :, i]
-            k_i = k[:, :, i]
+        for h in range(self.head_num):
+            v_i = v[:, :, h]
+            k_i = k[:, :, h]
 
-            c_tm1[:, i, :, :] = enlarge_as(f[:, :, i], c_tm1[:, i, :, :]) * c_tm1[:, i, :, :]  
-            c_tm1[:, i, :, :] += enlarge_as(i[:, :, i], c_tm1[:, i, :, :]) * mx.outer(v_i, k_i)
+            c_tm1[:, h, :, :] = enlarge_as(f, c_tm1[:, h, :, :]) * c_tm1[:, h, :, :]
+            kv = mx.expand_dims(v_i, -1) * mx.expand_dims(k_i, -2)  # (B, DH, 1) * (B, 1, DH) -> (B, DH, DH)
+            c_tm1[:, h, :, :] += enlarge_as(i, c_tm1[:, h, :, :]) * kv
 
-            n_tm1[:, i, :] = f[:, :, i] * n_tm1[:, i, :]
-            n_tm1[:, i, :] += i[:, :, i] * k_i
+            n_tm1[:, h, :] = f * n_tm1[:, h, :]
+            n_tm1[:, h, :] += i * k_i
 
         m_tm1 = m_t
 
         out = []
-        for i in range(self.head_num):
-            v_i = v[:, :, i]
-            k_i = k[:, :, i]
-            q_i = q[:, :, i]
+        for h in range(self.head_num):
+            v_i = v[:, :, h]           # (B, DH)
+            k_i = k[:, :, h]           # (B, DH)
+            q_i = q[:, :, h]           # (B, DH)
 
-            nH = mx.matmul(n_tm1[:, i, :].T, q_i).max()
-            nH = 1.0 if 1.0 > nH else nH
+            # Per-batch normalization term: |q · n|, lower-bounded by 1.0
+            nH = mx.sum(n_tm1[:, h, :] * q_i, axis=-1)  # (B,)
+            nH = mx.maximum(mx.abs(nH), mx.array(1.0, dtype=nH.dtype))  # (B,)
 
-            scvT = mx.matmul(c_tm1[:, i, :, :], q_i) / nH
-            out.append(scvT)
+            # Batched matrix-vector: (B, DH, DH) @ (B, DH, 1) -> (B, DH, 1) -> (B, DH)
+            scv = mx.matmul(c_tm1[:, h, :, :], mx.expand_dims(q_i, -1)).squeeze(-1)
+            scv = scv / mx.expand_dims(nH, -1)
+            out.append(scv)
         out = mx.concatenate(out, axis=1)
         out = self.gn(out)
         
@@ -158,3 +162,15 @@ class mLSTMBlock(nn.Module):
         out = self.down_proj(out) + x
         return out, (c_tm1, n_tm1, m_tm1)
 
+    def init_hidden(self, bs: int):
+        """Initialize hidden state for mLSTMBlock.
+
+        Shapes follow the internal usage:
+        - c: (B, head_num, head_size, head_size)
+        - n: (B, head_num, head_size)
+        - m: (B, head_size) — matches per-channel gating used in m_t computation
+        """
+        c = mx.zeros((bs, self.head_num, self.head_size, self.head_size))
+        n = mx.zeros((bs, self.head_num, self.head_size))
+        m = mx.zeros((bs, self.head_size))
+        return c, n, m

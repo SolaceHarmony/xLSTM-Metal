@@ -40,24 +40,30 @@ class xLSTMSolaceMLX(nn.Module):
 
         self.head = nn.Linear(inp_dim, vocab_size)
         
-    def __call__(self, tok, hid=None, batch_first = False):
+    def __call__(self, tok, hid=None, batch_first: bool = True):
         tok = mx.atleast_2d(tok)
-        seq = self.embedding(tok)
+        seq = self.embedding(tok)             # (B, S, D) if batch_first
 
-        if batch_first: 
-            bs, s, i = seq.shape
-            seq = seq.reshape(s, bs, i)
-        if hid is None: hid = [l.init_hidden(seq.shape[1]) for l in self.blocks]
+        if not batch_first:
+            # Convert to time-major (S, B, D)
+            B, S, D = seq.shape
+            seq = mx.transpose(seq, (1, 0, 2))
+        else:
+            # Already batch-first; iterate over time
+            B, S, D = seq.shape
+            seq = mx.transpose(seq, (1, 0, 2))  # to (S, B, D) for step loop
+        if hid is None:
+            hid = [l.init_hidden(B) for l in self.blocks]
 
         out = []
-        for inp in seq:
+        for inp in seq:                        # inp: (B, D)
             for i, lstm in enumerate(self.blocks):
                 inp, hid[i] = lstm(inp, hid[i])
             
             out.append(inp)
-        
-        out = mx.stack(out, axis=1 if batch_first else 0)
+        # Reconstruct (B, S, D)
+        out = mx.stack(out, axis=0)           # (S, B, D)
+        out = mx.transpose(out, (1, 0, 2))    # (B, S, D)
         out = self.head(out)
 
         return out, hid
-

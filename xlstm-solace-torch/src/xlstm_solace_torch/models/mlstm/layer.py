@@ -3,7 +3,13 @@ from dataclasses import dataclass, field
 from typing import Literal
 import torch
 from torch import nn
-from ..model import mLSTMBackendConfig, mLSTMBackend, WeightModeType, xLSTMSolaceTorchConfig, soft_cap
+from xlstm_solace_torch.kernels.torch.backend_module import (
+    mLSTMBackendConfig,
+    mLSTMBackend,
+)
+from ..components import MultiHeadLayerNorm, soft_cap
+
+WeightModeType = Literal["single", "fused"]
 
 @dataclass
 class mLSTMLayerConfig:
@@ -105,8 +111,8 @@ class mLSTMLayer(nn.Module):
         )
 
     def forward(
-        self, x: torch.Tensor, state: mLSTMLayerStateType | None = None
-    ) -> tuple[torch.Tensor, mLSTMLayerStateType | None]:
+        self, x: torch.Tensor, state: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None]:
         assert x.ndim == 3, f"Input must have shape [B, S, D], got {x.shape}"
         B, S, _ = x.shape
         if self.config.weight_mode == "single":

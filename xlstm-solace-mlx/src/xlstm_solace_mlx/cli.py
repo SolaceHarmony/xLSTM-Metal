@@ -49,7 +49,7 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--prompt", type=str, default="Hello, world!")
     ap.add_argument("--prompt-file", type=str, default=None)
-    ap.add_argument("--max_new_tokens", type=int, default=32)
+    ap.add_argument("--max_new_tokens", type=int, default=64)
     ap.add_argument("--temperature", type=float, default=0.8)
     ap.add_argument("--top_k", type=int, default=0)
 
@@ -115,18 +115,19 @@ def main(argv: Optional[list[str]] = None) -> None:
             return {}
     base = _load_json("configs/mlx_hardware_params.json")
     prof = {}
+    # Load profile from local configs if provided
     if args.profile:
         from pathlib import Path as _P
-        prof = _load_json(str((_P("configs") / f"{args.profile}.json"))) or (lambda: __import__('importlib.resources').resources.files('xlstm_solace_mlx.configs').joinpath('mlx_golden.json').read_text())()
+        prof = _load_json(str((_P("configs") / f"{args.profile}.json")))
+    # Optional explicit config file
     cfg_file = _load_json(args.config) if args.config else {}
     merged = {}
+    # Always try packaged golden to provide polished defaults unless overridden later
     try:
-        # Try packaged golden when no explicit profile provided and base is empty
-        if not args.profile and not base:
-            import importlib.resources as ir
-            with ir.files('xlstm_solace_mlx.configs').joinpath('mlx_golden.json').open('r') as f:
-                import json as _json
-                merged.update(_json.load(f))
+        import importlib.resources as ir
+        with ir.files('xlstm_solace_mlx.configs').joinpath('mlx_golden.json').open('r') as f:
+            import json as _json
+            merged.update(_json.load(f))
     except Exception:
         pass
     for d in (base, prof, cfg_file):
@@ -194,10 +195,10 @@ def main(argv: Optional[list[str]] = None) -> None:
     t_prefill_start = time.time()
     if use_streams:
         with mx.stream(s_gpu):
-            logits, state = model(input_ids, return_hidden=True)
+            logits, state = model(input_ids)
             last_logits = logits[:, -1, :]
     else:
-        logits, state = model(input_ids, return_hidden=True)
+        logits, state = model(input_ids)
         last_logits = logits[:, -1, :]
     t_prefill = time.time() - t_prefill_start
 
@@ -219,13 +220,13 @@ def main(argv: Optional[list[str]] = None) -> None:
                 next_id = softmax_sample(last_logits[0], args.temperature, args.top_k)
                 out_ids.append(int(next_id))
                 step_in = mx.array([[int(next_id)]], dtype=mx.int32)
-                logits, state = model(step_in, hidden_states=state, return_hidden=True)
+                logits, state = model(step_in, state)
                 last_logits = logits[:, -1, :]
         else:
             next_id = softmax_sample(last_logits[0], args.temperature, args.top_k)
             out_ids.append(int(next_id))
             step_in = mx.array([[int(next_id)]], dtype=mx.int32)
-            logits, state = model(step_in, hidden_states=state, return_hidden=True)
+            logits, state = model(step_in, state)
             last_logits = logits[:, -1, :]
         if (step % stats_every) == 0 and (csv_w is not None):
             elapsed = time.time() - t_step_start

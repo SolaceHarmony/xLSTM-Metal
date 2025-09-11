@@ -1,7 +1,7 @@
 import mlx.core as mx
 import mlx.nn as nn
 
-from .util import CausalConv1d, enlarge_as
+from ..util import CausalConv1d, enlarge_as
 
 class sLSTMBlock(nn.Module):
     def __init__(
@@ -83,4 +83,3 @@ class sLSTMBlock(nn.Module):
         out = self.down_proj(out)
 
         return out + x, (c_t, n_t, h_t, m_t)
-

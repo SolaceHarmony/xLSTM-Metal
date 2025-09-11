@@ -8,8 +8,6 @@ Run a local xLSTM HF checkpoint on Apple Silicon (MPS) using the compiled backen
 """
 import argparse
 import os
-\# Enforce GPU-only before importing torch
-os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "0")
 import json
 from pathlib import Path
 import signal
@@ -83,8 +81,7 @@ def load_local_config(config_path: Path) -> xLSTMSolaceTorchConfig:
             mcfg.autocast_kernel_dtype = "bfloat16"
         if "inference_state_dtype" not in cfg:
             mcfg.inference_state_dtype = "float32"
-        # Default Ray local_mode unless user chose otherwise
-        os.environ.setdefault("XLSTM_RAY_LOCAL_MODE", "1")
+        # Do not set envs; runtime opts will carry defaults.
     else:
         # Non-MPS: respect JSON kernels if present
         if "chunkwise_kernel" in cfg:
@@ -151,6 +148,9 @@ def main():
     ap.add_argument("--ray-dashboard-port", type=int, default=8265, help="Ray dashboard port (default 8265)")
     ap.add_argument("--ray-local-mode", type=int, default=None, choices=[0,1], help="Set Ray local_mode explicitly (1=in-process, 0=multiprocess)")
     ap.add_argument("--ray-keep-alive", action="store_true", help="Keep Ray head running after run (dashboard stays up)")
+    # Stopping criteria
+    ap.add_argument("--stop-string", action="append", default=None, help="Stop when any of these strings appears in the generated text (repeat flag to add multiple)")
+    ap.add_argument("--no-eos-stop", action="store_true", help="Do not stop on tokenizer.eos_token_id")
     # Dry-run / visibility
     ap.add_argument("--print-effective-config", action="store_true", help="Print the effective runtime + backend config and exit")
     args = ap.parse_args()
@@ -228,8 +228,7 @@ def main():
         if not getattr(args_obj, "ray_dashboard", False) and merged.get("ray_dashboard"):
             args_obj.ray_dashboard = bool(merged.get("ray_dashboard"))
 
-        # Environment overlays
-        os.environ.setdefault("XLSTM_MEM_WATCHDOG", "1")
+        # Environment overlays (not used for production; kept for visibility only)
         env_map = {
             "mem_poll_ms": "XLSTM_MEM_POLL_MS",
             "mem_soft_pct": "XLSTM_MEM_SOFT_PCT",
@@ -261,8 +260,14 @@ def main():
             num_blocks=24,
             vocab_size=50257,
         )
-    # Early print-and-exit for visibility
+    # Early print-and-exit for visibility: apply merged args to reflect effective config
     if args.print_effective_config:
+        # Apply CLI/JSON overrides into the config view (non-destructive for run)
+        if args.chunkwise_backend:
+            mcfg.chunkwise_kernel = f"chunkwise--{args.chunkwise_backend}"
+        if args.chunk_size is not None:
+            mcfg.chunk_size = int(args.chunk_size)
+        # Build effective view
         eff = {
             "chunkwise_kernel": getattr(mcfg, "chunkwise_kernel", None),
             "sequence_kernel": getattr(mcfg, "sequence_kernel", None),
@@ -335,16 +340,18 @@ def main():
 
     # Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
+    # Quiet parallelism warnings without envs
+    try:
+        from tokenizers import utils as _tok_utils  # type: ignore
+        _tok_utils.enable_parallelism(False)  # type: ignore
+    except Exception:
+        pass
 
     # Device setup
     device = torch.device("mps")
     model = model.to(device).eval()
 
-    # Optional: enforce GPU-only if available in this PyTorch build
-    try:
-        torch._C._set_mps_fallback_enabled(False)  # type: ignore[attr-defined]
-    except Exception:
-        pass
+    # No CPU fallback: code assumes MPS; no runtime toggles.
 
     # Prepare input
     if args.prompt_file:
@@ -422,6 +429,24 @@ def main():
             pass
         next_tok = torch.argmax(logits[:, -1:, :], dim=-1)
         gen[:, 0:1] = next_tok
+        # Stop tracking
+        stop_strings = args.stop_string or []
+        eos_id = None if args.no_eos_stop else getattr(tokenizer, "eos_token_id", None)
+        # Text buffer to detect stop strings incrementally
+        text_buf = ""
+        try:
+            frag = tokenizer.decode(next_tok[0].tolist(), skip_special_tokens=False)
+            text_buf += frag
+        except Exception:
+            pass
+        if eos_id is not None and int(next_tok.item()) == int(eos_id):
+            if stats_fp:
+                stats_fp.close()
+            return gen[:, :1], state, (t1 - t0), 0.0
+        if stop_strings and any((s and s in text_buf) for s in stop_strings):
+            if stats_fp:
+                stats_fp.close()
+            return gen[:, :1], state, (t1 - t0), 0.0
 
         # Optional CfC calibrator state
         cfc_state = None
@@ -458,6 +483,16 @@ def main():
             cum += dt
             next_tok = torch.argmax(logits[:, -1:, :], dim=-1)
             gen[:, i:i+1] = next_tok
+            # Stop on EOS or configured stop strings
+            if eos_id is not None and int(next_tok.item()) == int(eos_id):
+                break
+            try:
+                frag = tokenizer.decode(next_tok[0].tolist(), skip_special_tokens=False)
+                text_buf += frag
+            except Exception:
+                pass
+            if stop_strings and any((s and s in text_buf) for s in stop_strings):
+                break
             if stats_fp and (i % max(args.stats_every, 1) == 0):
                 inst = 1.0 / max(dt, 1e-9)
                 avg = i / max(cum, 1e-9)
