@@ -4,35 +4,31 @@ import torch
 from xlstm_solace_torch.models.model import xLSTMSolaceTorch, xLSTMSolaceTorchConfig
 
 
-def test_torch_smoke_train_native_cpu():
-    # Configure pure-native kernels so this can run on CPU.
+def test_torch_smoke_mps_metal():
+    assert torch.backends.mps.is_available(), "MPS required (no CPU inference support)"
+    # Configure compiled MPS backends explicitly.
     cfg = xLSTMSolaceTorchConfig(
         embedding_dim=64,
         num_heads=4,
         num_blocks=2,
         vocab_size=128,
         use_bias=False,
-        chunkwise_kernel="chunkwise--native_autograd",
-        sequence_kernel="native_sequence__native",
-        step_kernel="native",
-        mode="train",
+        chunkwise_kernel="chunkwise--ray_compiled_steps",
+        sequence_kernel="native_sequence__metal",
+        step_kernel="metal",
+        mode="inference",
         chunk_size=8,
-        return_last_states=False,
+        return_last_states=True,
         autocast_kernel_dtype="float32",
         inference_state_dtype="float32",
     )
-    model = xLSTMSolaceTorch(cfg).eval()
-    # Tiny batch and prompt
-    x = torch.randint(low=0, high=cfg.vocab_size, size=(1, 5), dtype=torch.long)
+    device = torch.device("mps")
+    model = xLSTMSolaceTorch(cfg).to(device).eval()
+    # Tiny batch and prompt on MPS
+    x = torch.randint(low=0, high=cfg.vocab_size, size=(1, 5), dtype=torch.long, device=device)
     with torch.no_grad():
-        logits = model(x)
-    assert logits.shape == (1, 5, cfg.vocab_size)
-
-    # Quick generate() call for a couple tokens using the native step
-    cfg.return_last_states = True
-    model = xLSTMSolaceTorch(cfg).eval()
-    with torch.no_grad():
+        logits, state = model(x)
+        assert logits.shape == (1, 5, cfg.vocab_size)
         tokens, state = model.generate(prefill_tokens=x, max_length=2)
-    assert tokens.shape == (1, 2)
-    assert state is not None
-
+        assert tokens.shape == (1, 2)
+        assert state is not None

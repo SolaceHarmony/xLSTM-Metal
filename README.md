@@ -7,7 +7,7 @@ A comprehensive collection of xLSTM (Extended LSTM) implementations with varying
 ## Getting Started
 
 - Python: use conda env `base` (Python 3.12). Prefer `conda run -n base ...` for all commands.
-- Env: run from repo root with `PYTHONPATH=.` and enforce GPU‑only `PYTORCH_ENABLE_MPS_FALLBACK=0`.
+- Env: run from repo root with `PYTHONPATH=.`. This project has no CPU inference support; it is Apple GPU‑only. The Torch entry enforces `PYTORCH_ENABLE_MPS_FALLBACK=0` programmatically.
 - Weights: download xLSTM‑7B from Hugging Face (NX‑AI/xLSTM‑7b) and place under `./xlstm_7b_model` or pass `--model_path`.
 - Hugging Face model card: https://huggingface.co/NX-AI/xLSTM-7b
 - Quick run:

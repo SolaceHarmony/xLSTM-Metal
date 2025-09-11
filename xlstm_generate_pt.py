@@ -8,6 +8,8 @@ Run a local xLSTM HF checkpoint on Apple Silicon (MPS) using the compiled backen
 """
 import argparse
 import os
+\# Enforce GPU-only before importing torch
+os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "0")
 import json
 from pathlib import Path
 import signal

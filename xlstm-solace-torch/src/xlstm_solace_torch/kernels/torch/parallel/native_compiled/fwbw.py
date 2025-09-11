@@ -22,9 +22,9 @@ def _parallel_native_compiled_autograd_eager(
     autocast_kernel_dtype: torch.dtype = torch.bfloat16,
     **kwargs,
 ):
-    # Strict device check: compiled path must run on GPU
-    if q.device.type == 'cpu':
-        raise RuntimeError("mLSTM parallel compiled requires GPU (MPS/CUDA); CPU not allowed.")
+    # Strict device check: compiled path must run on Apple GPU (MPS)
+    if q.device.type != 'mps':
+        raise RuntimeError("mLSTM parallel compiled requires Apple MPS device; CPU/CUDA not supported.")
     # Delegate to existing native parallel implementation (pure PyTorch ops)
     return _parallel_native_autograd(
         q=q, k=k, v=v, i=i, f=f,
@@ -48,9 +48,9 @@ def _parallel_native_stablef_compiled_autograd_eager(
     autocast_kernel_dtype: torch.dtype = torch.bfloat16,
     **kwargs,
 ):
-    # Strict device check: compiled path must run on GPU
-    if q.device.type == 'cpu':
-        raise RuntimeError("mLSTM parallel compiled (stablef) requires GPU (MPS/CUDA); CPU not allowed.")
+    # Strict device check: compiled path must run on Apple GPU (MPS)
+    if q.device.type != 'mps':
+        raise RuntimeError("mLSTM parallel compiled (stablef) requires Apple MPS device; CPU/CUDA not supported.")
     # Delegate to stablef native implementation (pure PyTorch ops)
     return _parallel_native_stablef_autograd(
         q=q, k=k, v=v, i=i, f=f,

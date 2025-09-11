@@ -2,7 +2,7 @@
 
 This guide is for humans and automation agents working in this repo. It explains what the project is, how to run it safely on Apple Silicon, where the production entrypoints live, and how runtime configuration works now (JSON‑first, no envs in production).
 
-Assumptions: macOS on Apple Silicon, conda env `base` (Python 3.12).
+Assumptions: macOS on Apple Silicon, conda env `base` (Python 3.12). CUDA is not a supported target for the Torch path; MLX may support CUDA on some platforms but is not a primary focus here.
 
 ## What This Project Is
 - Goal: High‑throughput xLSTM (mLSTM + sLSTM) inference on Apple Silicon via compiled PyTorch MPS backends (Torch) and a pure MLX path (MLX).
