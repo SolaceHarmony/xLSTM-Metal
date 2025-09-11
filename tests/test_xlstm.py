@@ -6,7 +6,16 @@ Test xLSTM implementation
 import sys
 import os
 # Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, root_dir)
+
+# Add both torch and mlx implementations to path
+torch_src = os.path.join(root_dir, "xlstm-solace-torch", "src")
+mlx_src = os.path.join(root_dir, "xlstm-solace-mlx", "src")
+if torch_src not in sys.path:
+    sys.path.insert(0, torch_src)
+if mlx_src not in sys.path:
+    sys.path.insert(0, mlx_src)
 
 import torch
 import time
@@ -79,8 +88,8 @@ def test_mlstm_backend():
     """Test mLSTM backend"""
     print("\n3. Testing mLSTM backend...")
     
-    # Import our implementation
-    from xlstm.backends.mlstm_backend import mLSTMBackendConfig, mLSTMBackend
+    # Import our implementation  
+    from xlstm_solace_torch.kernels.torch.backend_module import mLSTMBackendConfig, mLSTMBackend
     
     config = mLSTMBackendConfig(
         chunkwise_kernel="native",
@@ -116,21 +125,21 @@ def test_simple_forward():
     
     # Import our model
     try:
-        from xlstm.models.xlstm import xLSTMLarge, xLSTMLargeConfig
+        from xlstm_solace_torch.models import xLSTMSolaceTorch, xLSTMSolaceTorchConfig
         print("   ✓ Imported xLSTM implementation")
     except ImportError as e:
         print(f"   ✗ Failed to import: {e}")
         return
     
     # Create small model for testing
-    config = xLSTMLargeConfig(
+    config = xLSTMSolaceTorchConfig(
         embedding_dim=128,
         num_heads=2,
         num_blocks=1,
         vocab_size=100
     )
     
-    model = xLSTMLarge(config)
+    model = xLSTMSolaceTorch(config)
     model = model.to('mps')
     model.eval()
     

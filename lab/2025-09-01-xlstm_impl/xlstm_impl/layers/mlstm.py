@@ -5,31 +5,25 @@ import torch
 from torch import nn
 from typing import Optional, Tuple, Literal
 
-# Import from installed xlstm package or use fallbacks
-import importlib.util
-spec = importlib.util.find_spec("xlstm")
-if spec is not None:
-    from xlstm.xlstm_large.components import MultiHeadLayerNorm, RMSNorm, soft_cap
-    from xlstm.xlstm_large.utils import round_up_to_next_multiple_of
-else:
-    # Use implementations from models
-    from ..models.xlstm import RMSNorm, soft_cap
-    
-    def round_up_to_next_multiple_of(x, multiple):
-        return ((x + multiple - 1) // multiple) * multiple
-    
-    # Simple MultiHeadLayerNorm implementation
-    class MultiHeadLayerNorm(torch.nn.Module):
-        def __init__(self, num_heads, head_dim, eps=1e-6, use_weight=True, use_bias=False, force_float32_reductions=True):
-            super().__init__()
-            self.num_heads = num_heads
-            self.head_dim = head_dim
-            self.norm = torch.nn.LayerNorm(num_heads * head_dim, eps=eps)
-            
-        def forward(self, x):
-            B, S, NH, DH = x.shape
-            x = x.reshape(B, S, -1)
-            return self.norm(x)
+# Use implementations from models
+from ..models.xlstm import RMSNorm, soft_cap
+
+def round_up_to_next_multiple_of(x, multiple):
+    return ((x + multiple - 1) // multiple) * multiple
+
+# Simple MultiHeadLayerNorm implementation
+class MultiHeadLayerNorm(torch.nn.Module):
+    def __init__(self, num_heads, head_dim, eps=1e-6, use_weight=True, use_bias=False, force_float32_reductions=True):
+        super().__init__()
+        self.num_heads = num_heads
+        self.head_dim = head_dim
+        self.norm = torch.nn.LayerNorm(num_heads * head_dim, eps=eps)
+        
+    def forward(self, x):
+        B, S, NH, DH = x.shape
+        x = x.reshape(B, S, -1)
+        return self.norm(x)
+
 from ..backends.mlstm_backend import mLSTMBackend, mLSTMBackendConfig
 from .feedforward import FeedForward
 

@@ -5,47 +5,37 @@ import torch
 from torch import nn
 from typing import Optional, Union, Literal
 
-# Import from installed xlstm package
-import sys
-import importlib.util
-spec = importlib.util.find_spec("xlstm")
-if spec is not None:
-    from xlstm.xlstm_large.components import RMSNorm, soft_cap
-    from xlstm.xlstm_large.generate import generate_tokens, get_sampling_fn
-else:
-    # Fallback implementations
-    import torch
-    from torch import nn
+from xlstm_solace_torch.kernels.torch.metal.softcap import metal_soft_cap
+
+def soft_cap(values, cap_value=None):
+    if cap_value is None:
+        return values
+    return cap_value * torch.tanh(values / cap_value)
+
+class RMSNorm(nn.Module):
+    def __init__(self, num_features, eps=1e-6, use_weight=True, use_bias=False, force_float32_reductions=True):
+        super().__init__()
+        self.num_features = num_features
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(num_features)) if use_weight else None
+        self.bias = nn.Parameter(torch.zeros(num_features)) if use_bias else None
+        
+    def forward(self, x):
+        dtype = x.dtype
+        x = x.float()
+        norm = x * torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        if self.weight is not None:
+            norm = norm * self.weight
+        if self.bias is not None:
+            norm = norm + self.bias
+        return norm.to(dtype)
     
-    def soft_cap(values, cap_value=None):
-        if cap_value is None:
-            return values
-        return cap_value * torch.tanh(values / cap_value)
-    
-    class RMSNorm(nn.Module):
-        def __init__(self, num_features, eps=1e-6, use_weight=True, use_bias=False, force_float32_reductions=True):
-            super().__init__()
-            self.num_features = num_features
-            self.eps = eps
-            self.weight = nn.Parameter(torch.ones(num_features)) if use_weight else None
-            self.bias = nn.Parameter(torch.zeros(num_features)) if use_bias else None
-            
-        def forward(self, x):
-            dtype = x.dtype
-            x = x.float()
-            norm = x * torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
-            if self.weight is not None:
-                norm = norm * self.weight
-            if self.bias is not None:
-                norm = norm + self.bias
-            return norm.to(dtype)
-    
-    # Placeholder for generate functions
-    def generate_tokens(*args, **kwargs):
-        raise NotImplementedError("generate_tokens not available without xlstm package")
-    
-    def get_sampling_fn(*args, **kwargs):
-        raise NotImplementedError("get_sampling_fn not available without xlstm package")
+# Placeholder for generate functions
+def generate_tokens(*args, **kwargs):
+    raise NotImplementedError("generate_tokens not available without xlstm package")
+
+def get_sampling_fn(*args, **kwargs):
+    raise NotImplementedError("get_sampling_fn not available without xlstm package")
 from ..layers.mlstm import mLSTMBlock
 from ..backends.mlstm_backend import mLSTMBackendConfig
 from ..utils.device import DEVICE

@@ -360,7 +360,9 @@ def test_extension():
             return False
         
         # Import our extension
-        from pytorch_metal_xlstm import metal_soft_cap, MetalSoftCap
+    
+        from xlstm_solace_torch.kernels.torch.metal import metal_soft_cap
+
         
         # Test tensor
         device = torch.device("mps")
@@ -374,7 +376,7 @@ def test_extension():
         print(f"Function result: [{result_func.min():.2f}, {result_func.max():.2f}]")
         
         # Test module
-        soft_cap_module = MetalSoftCap(5.0)
+        soft_cap_module = metal_soft_cap(5.0)
         result_module = soft_cap_module(test_tensor)
         print(f"Module result: [{result_module.min():.2f}, {result_module.max():.2f}]")
         
@@ -398,7 +400,7 @@ def benchmark_metal_vs_pytorch(runs=100):
     
     import torch
     import time
-    from pytorch_metal_xlstm import metal_soft_cap
+    from xlstm_solace_torch.kernels.torch.metal.softcap import metal_soft_cap
     
     device = torch.device("mps")
     test_tensor = torch.randn(10000, device=device) * 10

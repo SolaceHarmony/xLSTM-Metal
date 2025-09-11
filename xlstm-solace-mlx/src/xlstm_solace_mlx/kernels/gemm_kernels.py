@@ -38,7 +38,7 @@ from __future__ import annotations
 from typing import Tuple
 import os
 import mlx.core as mx
-import mlx.core.metal as metal
+# Access metal via mx.metal - MLX doesn't expose metal as direct import
 from tools.mlx_tuning import tiles_for_gemm as _tiles_for_gemm
 from tools.mlx_runtime import get_runtime_config as _get_runtime_config
 
@@ -46,13 +46,10 @@ _HEADER = """#include <metal_stdlib>\nusing namespace metal;\n"""
 
 
 def _detect_device_name() -> str:
-    try:
-        if metal is None:
-            return ""
-        info = metal.device_info()
-        return str(info.get("device_name", ""))
-    except Exception:
+    if not hasattr(mx, 'metal'):
         return ""
+    info = mx.metal.device_info()
+    return str(info.get("device_name", ""))
 
 
 def _exec_width() -> int:
@@ -60,13 +57,10 @@ def _exec_width() -> int:
 
     Using 32 as a safe default for Apple GPUs.
     """
-    try:
-        if metal is None:
-            return 32
-        info = metal.device_info()
-        return int(info.get("threadExecutionWidth", 32))
-    except Exception:
+    if not hasattr(mx, 'metal'):
         return 32
+    info = mx.metal.device_info()
+    return int(info.get("threadExecutionWidth", 32))
 
 
 def _select_tile_av() -> Tuple[int, int]:
@@ -77,23 +71,17 @@ def _select_tile_av() -> Tuple[int, int]:
     """
     env = os.environ.get("XLSTM_GEMM_TILE_AV") or os.environ.get("XLSTM_GEMM_TILE")
     if env:
-        try:
-            tm_s, t_s = env.lower().split("x")
-            tm, t = int(tm_s), int(t_s)
-            if tm * t <= 1024 and tm > 0 and t > 0:
-                return tm, t
-        except Exception:
-            pass
+        tm_s, t_s = env.lower().split("x")
+        tm, t = int(tm_s), int(t_s)
+        if tm * t <= 1024 and tm > 0 and t > 0:
+            return tm, t
     # Tuning JSON (device-aware) if available
     if _tiles_for_gemm is not None:
-        try:
-            av, _ = _tiles_for_gemm()
-            if av and "x" in av:
-                tm_s, t_s = av.lower().split("x"); tm, t = int(tm_s), int(t_s)
-                if tm * t <= 1024 and tm > 0 and t > 0:
-                    return tm, t
-        except Exception:
-            pass
+        av, _ = _tiles_for_gemm()
+        if av and "x" in av:
+            tm_s, t_s = av.lower().split("x"); tm, t = int(tm_s), int(t_s)
+            if tm * t <= 1024 and tm > 0 and t > 0:
+                return tm, t
     name = _detect_device_name().lower()
     if "m3" in name:
         return 32, 8
@@ -108,23 +96,17 @@ def _select_tile_atb() -> Tuple[int, int, int]:
     """
     env = os.environ.get("XLSTM_GEMM_TILE_ATB")
     if env:
-        try:
-            tn_s, tk_s = env.lower().split("x")
-            tn, tk = int(tn_s), int(tk_s)
-            if tn * tk <= 1024 and tn > 0 and tk > 0:
-                return tn, 16, tk
-        except Exception:
-            pass
+        tn_s, tk_s = env.lower().split("x")
+        tn, tk = int(tn_s), int(tk_s)
+        if tn * tk <= 1024 and tn > 0 and tk > 0:
+            return tn, 16, tk
     # Tuning JSON (device-aware) if available
     if _tiles_for_gemm is not None:
-        try:
-            _, atb = _tiles_for_gemm()
-            if atb and "x" in atb:
-                tn_s, tk_s = atb.lower().split("x"); tn, tk = int(tn_s), int(tk_s)
-                if tn * tk <= 1024 and tn > 0 and tk > 0:
-                    return tn, 16, tk
-        except Exception:
-            pass
+        _, atb = _tiles_for_gemm()
+        if atb and "x" in atb:
+            tn_s, tk_s = atb.lower().split("x"); tn, tk = int(tn_s), int(tk_s)
+            if tn * tk <= 1024 and tn > 0 and tk > 0:
+                return tn, 16, tk
     name = _detect_device_name().lower()
     if "m3" in name:
         return 8, 16, 32
@@ -135,10 +117,7 @@ def _format_av_source_square(T: int) -> str:
     from string import Template
     PAD = 0
     if _get_runtime_config is not None:
-        try:
-            PAD = 1 if bool(_get_runtime_config().get("gemm_pad")) else 0
-        except Exception:
-            pass
+        PAD = 1 if bool(_get_runtime_config().get("gemm_pad")) else 0
     if PAD == 0 and os.environ.get("XLSTM_GEMM_PAD", "0") == "1":
         PAD = 1
     tpl = Template(r"""
@@ -199,10 +178,7 @@ def _format_at_b_source_square(T: int) -> str:
     from string import Template
     PAD = 0
     if _get_runtime_config is not None:
-        try:
-            PAD = 1 if bool(_get_runtime_config().get("gemm_pad")) else 0
-        except Exception:
-            pass
+        PAD = 1 if bool(_get_runtime_config().get("gemm_pad")) else 0
     if PAD == 0 and os.environ.get("XLSTM_GEMM_PAD", "0") == "1":
         PAD = 1
     tpl = Template(r"""

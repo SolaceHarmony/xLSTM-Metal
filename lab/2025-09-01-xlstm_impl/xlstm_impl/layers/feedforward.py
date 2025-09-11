@@ -3,14 +3,9 @@
 import torch
 from torch import nn
 
-# Import utilities
-import importlib.util
-spec = importlib.util.find_spec("xlstm")
-if spec is not None:
-    from xlstm.xlstm_large.utils import round_up_to_next_multiple_of
-else:
-    def round_up_to_next_multiple_of(x, multiple):
-        return ((x + multiple - 1) // multiple) * multiple
+
+def round_up_to_next_multiple_of(x, multiple):
+    return ((x + multiple - 1) // multiple) * multiple
 
 class FeedForward(nn.Module):
     """FeedForward layer with SwiGLU activation."""

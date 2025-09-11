@@ -22,8 +22,7 @@ import json
 from pathlib import Path
 from typing import Optional, Tuple
 
-import mlx.core.metal as metal
-
+import mlx.core as mx
 
 def _load_params() -> dict:
     cfg_path = Path("configs/mlx_hardware_params.json")
@@ -39,10 +38,11 @@ def _load_params() -> dict:
 
 
 def device_key() -> Tuple[str, str]:
-    backend = "metal" if metal is not None else "cpu"
+    backend = "metal" if hasattr(mx, 'metal') else "cpu"
     name = ""
-    info = metal.device_info()
-    name = str(info.get("device_name", ""))
+    if hasattr(mx, 'metal'):
+        info = mx.metal.device_info()
+        name = str(info.get("device_name", ""))
     return backend, name.lower()
 
 

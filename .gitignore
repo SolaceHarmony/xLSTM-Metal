@@ -26,3 +26,15 @@ xlstm_7b_model/
 
 # Local run/benchmark outputs
 runs/
+xlstm-solace-mlx/src/xlstm_solace_mlx.egg-info/dependency_links.txt
+.gitignore
+xlstm-solace-mlx/src/xlstm_solace_mlx.egg-info/entry_points.txt
+xlstm-solace-mlx/src/xlstm_solace_mlx.egg-info/PKG-INFO
+xlstm-solace-mlx/src/xlstm_solace_mlx.egg-info/requires.txt
+xlstm-solace-mlx/src/xlstm_solace_mlx.egg-info/SOURCES.txt
+xlstm-solace-mlx/src/xlstm_solace_mlx.egg-info/top_level.txt
+xlstm-solace-torch/src/xlstm_solace_torch.egg-info/dependency_links.txt
+xlstm-solace-torch/src/xlstm_solace_torch.egg-info/PKG-INFO
+xlstm-solace-torch/src/xlstm_solace_torch.egg-info/requires.txt
+xlstm-solace-torch/src/xlstm_solace_torch.egg-info/SOURCES.txt
+xlstm-solace-torch/src/xlstm_solace_torch.egg-info/top_level.txt
