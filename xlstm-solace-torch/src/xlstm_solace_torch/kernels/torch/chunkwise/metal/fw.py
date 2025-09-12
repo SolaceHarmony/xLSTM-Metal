@@ -127,11 +127,11 @@ def mlstm_chunkwise__metal_fw(
         raise FileNotFoundError("mlstm_kernels.metal not found for Metal chunkwise kernel")
 
     for t in range(S):
-        q_t = q[:, :, t, :].to(torch.float32, device=device).contiguous()
-        k_t = k[:, :, t, :].to(torch.float32, device=device).contiguous()
-        v_t = v[:, :, t, :].to(torch.float32, device=device).contiguous()
-        i_t = i[:, :, t].to(torch.float32, device=device).contiguous()
-        f_t = f[:, :, t].to(torch.float32, device=device).contiguous()
+        q_t = q[:, :, t, :].to(dtype=torch.float32, device=device).contiguous()
+        k_t = k[:, :, t, :].to(dtype=torch.float32, device=device).contiguous()
+        v_t = v[:, :, t, :].to(dtype=torch.float32, device=device).contiguous()
+        i_t = i[:, :, t].to(dtype=torch.float32, device=device).contiguous()
+        f_t = f[:, :, t].to(dtype=torch.float32, device=device).contiguous()
 
         h_t, (c_state, n_state, m_state) = _METAL_BACKEND.metal_mlstm_step_with_source(
             q_t, k_t, v_t, i_t, f_t, c_state, n_state, m_state, float(kwargs.get("eps", 1e-6)), src
