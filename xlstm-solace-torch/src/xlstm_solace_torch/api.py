@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Sequence, Tuple
 from .models import xLSTMSolaceTorch, xLSTMSolaceTorchConfig
+from .kernel_validation import validate_metal_only_kernels
 
 def create_xlstm_model(*,
     vocab_size: int,
@@ -62,6 +63,10 @@ def create_xlstm_model(*,
     )
     
     model = xLSTMSolaceTorch(config)
+    
+    # Validate Metal-only acceleration
+    validate_metal_only_kernels(config)
+    
     if device:
         model = model.to(device)
     return model

@@ -91,17 +91,17 @@ def test_mlstm_backend():
     # Import our implementation  
     from xlstm_solace_torch.kernels.torch.backend_module import mLSTMBackendConfig, mLSTMBackend
     
-    config = mLSTMBackendConfig(
-        chunkwise_kernel="chunkwise--native_autograd",
-        sequence_kernel="native_sequence__native",
-        step_kernel="native",
-        mode="train",
-        chunk_size=64,
-        return_last_states=False,
-        autocast_kernel_dtype="float16",
-        eps=1e-6,
-        inference_state_dtype="float32"
-    )
+    config = {
+                'vocab_size': 100,
+                'num_layers': 1,
+                'inp_dim': 64,
+                'head_dim': 32,
+                'head_num': 2,
+                # FORCE Metal-only kernels - NO native/CPU fallbacks
+                'chunkwise_kernel': 'chunkwise--metal_autograd',
+                'sequence_kernel': 'native_sequence__metal',
+                'step_kernel': 'metal',
+            }
     
     backend = mLSTMBackend(config=config)
     
