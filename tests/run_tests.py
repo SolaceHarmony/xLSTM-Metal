@@ -145,9 +145,11 @@ def test_pytorch_implementation():
         import torch
         import torch.nn as nn
         import torch.optim as optim
-        from xlstm_pytorch import create_xlstm_model
+        from xlstm_solace_torch.api import create_xlstm_model
         
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else None
+        if device is None:
+            raise RuntimeError("No MPS or CUDA available - GPU acceleration required")
         print(f"\nUsing device: {device}")
         
         # Model configuration (same as MLX)

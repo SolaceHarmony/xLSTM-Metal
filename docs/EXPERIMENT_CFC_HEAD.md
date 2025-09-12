@@ -22,7 +22,9 @@ from mlstm_kernels.torch.experiments.cfc_head_experiment import (
 )
 
 B, H, D = 1, 4, 64
-device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+device = torch.device('mps')  # Metal-only, no CPU fallback
+if not torch.backends.mps.is_available():
+    raise RuntimeError("MPS not available - Metal acceleration required")
 
 dtype = torch.bfloat16
 h = torch.zeros(B, H, D, device=device, dtype=dtype)

@@ -81,7 +81,9 @@ def dcc_decode_tensor(residue: torch.Tensor, carries: torch.Tensor, cfg: DccConf
 
 
 def dcc_self_test(device: torch.device | None = None) -> bool:
-    dev = device or (torch.device('mps') if torch.backends.mps.is_available() else torch.device('cpu'))
+    dev = device or torch.device('mps')
+    if not torch.backends.mps.is_available():
+        raise RuntimeError("MPS not available - Metal acceleration required")
     cfg = DccConfig()
     vals = torch.tensor([0.0, 1.0, -1.0, 0.1, -0.1, 3.14159, -2.71828, 1e-6, -1e-6, 0.5, -0.5, 10.0, -10.0], device=dev)
     res, car = dcc_encode_tensor(vals, cfg)

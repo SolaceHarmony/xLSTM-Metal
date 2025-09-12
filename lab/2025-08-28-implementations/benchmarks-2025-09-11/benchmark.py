@@ -68,7 +68,9 @@ def benchmark_pytorch(configs):
     import torch
     from xlstm_pytorch import create_xlstm_model
     
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else None
+    if device is None:
+        raise RuntimeError("No MPS or CUDA available - GPU acceleration required")
     results = []
     
     for config_name, config in configs.items():
@@ -170,7 +172,7 @@ def memory_benchmark():
     # PyTorch memory test
     try:
         import torch
-        from xlstm_solace_torch import api.create_xlstm_model
+        from xlstm_solace_torch.api import create_xlstm_model
         
         model = create_xlstm_model(
             vocab_size=10000,

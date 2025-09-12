@@ -12,12 +12,14 @@ from typing import Literal, Optional, Union, Tuple
 import math
 
 # Import official xLSTM components
-from xlstm.xlstm_large.components import MultiHeadLayerNorm, RMSNorm, soft_cap
-from xlstm.xlstm_large.utils import round_up_to_next_multiple_of
-from xlstm.xlstm_large.generate import generate_tokens, get_sampling_fn
+from xlstm_solace_torch.models.components import MultiHeadLayerNorm, RMSNorm, soft_cap
+from xlstm_solace_torch.models.utils import round_up_to_next_multiple_of
+from xlstm_solace_torch.models.generate import generate_tokens, get_sampling_fn
 
 # Check device availability
-DEVICE = "mps" if torch.backends.mps.is_available() else ("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else None
+if DEVICE is None:
+    raise RuntimeError("No MPS or CUDA available - GPU acceleration required")
 print(f"Using device: {DEVICE}")
 
 # Type definitions from official implementation

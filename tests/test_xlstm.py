@@ -24,7 +24,7 @@ from dataclasses import dataclass
 # First test if we can import the components
 print("Testing imports...")
 try:
-    from xlstm.xlstm_large.components import RMSNorm, soft_cap
+    from xlstm_solace_torch.models.components import RMSNorm, soft_cap
     print("✓ Official xLSTM components imported")
 except ImportError as e:
     print(f"✗ Failed to import xLSTM components: {e}")

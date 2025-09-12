@@ -102,13 +102,13 @@ def test_pretrained_model(model, tokenizer):
     print("Testing Pretrained Model")
     print("="*60)
     
-    # Move to GPU if available
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    if device == "cuda":
-        print(f"\nMoving model to GPU...")
-        model = model.to(device)
-    else:
-        print(f"\nUsing CPU (GPU not available)")
+    # Move to GPU - Metal-only, no CPU fallback
+    device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else None
+    if device is None:
+        raise RuntimeError("No MPS or CUDA available - GPU acceleration required")
+    
+    print(f"\nMoving model to {device.upper()}...")
+    model = model.to(device)
     
     model.eval()
     

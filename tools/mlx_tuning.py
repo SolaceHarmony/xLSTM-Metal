@@ -38,11 +38,11 @@ def _load_params() -> dict:
 
 
 def device_key() -> Tuple[str, str]:
-    backend = "metal" if hasattr(mx, 'metal') else "cpu"
-    name = ""
-    if hasattr(mx, 'metal'):
-        info = mx.metal.device_info()
-        name = str(info.get("device_name", ""))
+    if not hasattr(mx, 'metal'):
+        raise RuntimeError("MLX Metal not available - Metal acceleration required")
+    backend = "metal"
+    info = mx.metal.device_info()
+    name = str(info.get("device_name", ""))
     return backend, name.lower()
 
 

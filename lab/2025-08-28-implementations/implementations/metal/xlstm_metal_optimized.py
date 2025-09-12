@@ -18,16 +18,37 @@ from torch import nn
 import torch.nn.functional as F
 from typing import Literal, Optional, Union, Tuple, List
 import math
+import time
 
-# Import official xLSTM components
-try:
-    from xlstm.xlstm_large.components import MultiHeadLayerNorm, RMSNorm, soft_cap as original_soft_cap
-    from xlstm.xlstm_large.utils import round_up_to_next_multiple_of
-    from xlstm.xlstm_large.generate import generate_tokens, get_sampling_fn
-except ImportError as e:
-    raise ImportError(f"Failed to import official xLSTM components: {e}. Please install xlstm package.")
+# Import our Metal implementations - REQUIRED, no fallbacks
+from xlstm_solace_torch.kernels.torch.metal.softcap import metal_soft_cap
+from xlstm_solace_torch.models.model import mLSTMBlock
 
-METAL_AVAILABLE = torch.backends.mps.is_available()
+# Ensure Metal is available - this implementation is Metal-only
+if not torch.backends.mps.is_available():
+    raise RuntimeError("Metal Performance Shaders not available. This implementation requires MPS backend.")
+
+METAL_AVAILABLE = True
+MPS_AVAILABLE = True
+
+# Local implementations - no external xlstm dependencies
+def round_up_to_next_multiple_of(n: int, multiple: int) -> int:
+    """Round up to the next multiple of a number."""
+    return ((n + multiple - 1) // multiple) * multiple
+
+def soft_cap(x: torch.Tensor, cap_value: float = 15.0) -> torch.Tensor:
+    """Apply soft capping with tanh."""
+    return cap_value * torch.tanh(x / cap_value)
+
+def metal_optimized_softcap(x: torch.Tensor, cap_value: float = 15.0) -> torch.Tensor:
+    """Metal-optimized soft cap function - Metal-only, no fallbacks."""
+    return metal_soft_cap(x, cap_value)
+
+# Constants - Metal-only, no fallbacks
+METAL_AVAILABLE = True
+MPS_AVAILABLE = True
+DEFAULT_DEVICE = "mps"
+
 if not METAL_AVAILABLE:
     raise RuntimeError("Metal Performance Shaders not available. This implementation requires MPS backend.")
 
@@ -77,16 +98,8 @@ def soft_cap_metal(values: torch.Tensor, cap_value: Optional[Union[float, torch.
     if cap_value is None:
         return values
     
-    # Use Metal acceleration when tensor is on MPS device
-    if values.is_mps and isinstance(cap_value, (int, float)):
-        try:
-            metal_soft_cap = MetalSoftCap()
-            return metal_soft_cap.forward(values, float(cap_value))
-        except Exception as e:
-            raise RuntimeError(f"Metal soft_cap acceleration failed: {e}")
-    
-    # Original implementation from NX-AI xLSTM
-    return cap_value * torch.tanh(values / cap_value)
+    # Metal-only implementation - no fallbacks
+    return metal_soft_cap(values, float(cap_value))
 
 @dataclass
 class xLSTMLargeConfig:
@@ -442,8 +455,8 @@ class xLSTMLarge(nn.Module):
     
     @torch.no_grad()
     def benchmark(self, batch_size=1, seq_len=128, num_runs=10):
-        """Benchmark the model performance"""
-        device = 'mps' if MPS_AVAILABLE else 'cpu'
+        """Benchmark the model performance - Metal-only, no fallbacks"""
+        device = 'mps'  # Metal-only, no fallbacks
         
         # Warm up
         tokens = torch.randint(0, self.config.vocab_size, (batch_size, seq_len), device=device)
@@ -451,12 +464,12 @@ class xLSTMLarge(nn.Module):
             _ = self.forward(tokens)
         
         # Benchmark
-        torch.mps.synchronize() if MPS_AVAILABLE else None
+        torch.mps.synchronize()  # Metal-only, no fallbacks
         start_time = time.time()
         
         for _ in range(num_runs):
             logits = self.forward(tokens)
-            torch.mps.synchronize() if MPS_AVAILABLE else None
+            torch.mps.synchronize()  # Metal-only, no fallbacks
         
         end_time = time.time()
         avg_time = (end_time - start_time) / num_runs
