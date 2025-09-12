@@ -92,8 +92,8 @@ def test_mlstm_backend():
     from xlstm_solace_torch.kernels.torch.backend_module import mLSTMBackendConfig, mLSTMBackend
     
     config = mLSTMBackendConfig(
-        chunkwise_kernel="native",
-        sequence_kernel="native",
+        chunkwise_kernel="chunkwise--native_autograd",
+        sequence_kernel="native_sequence__native",
         step_kernel="native",
         mode="train",
         chunk_size=64,

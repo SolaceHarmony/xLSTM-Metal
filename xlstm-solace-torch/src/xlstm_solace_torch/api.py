@@ -53,10 +53,10 @@ def create_xlstm_model(*,
         v_dim_factor=1.0,
         gate_soft_cap=15.0,
         output_logit_soft_cap=30.0,
-        # Use available backend settings  
-        chunkwise_kernel="chunkwise--native_autograd",
-        sequence_kernel="native_sequence__native", 
-        step_kernel="native",
+        # FORCE Metal-accelerated kernels - NO CPU/native fallbacks
+        chunkwise_kernel="chunkwise--metal_autograd",
+        sequence_kernel="native_sequence__metal", 
+        step_kernel="metal",
         mode="train",
         chunk_size=64,
     )
