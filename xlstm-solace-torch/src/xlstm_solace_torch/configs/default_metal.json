@@ -30,7 +30,8 @@
     "gate_soft_cap": 15.0,
     "output_logit_soft_cap": 30.0,
     "chunk_size": 64,
-    "mode": "train"
+    "mode": "inference",
+    "return_last_states": true
   },
   
   "performance_settings": {

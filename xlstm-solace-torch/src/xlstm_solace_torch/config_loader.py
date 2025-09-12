@@ -37,6 +37,7 @@ class ModelConfig:
     output_logit_soft_cap: float = 30.0
     chunk_size: int = 64
     mode: str = "train"
+    return_last_states: bool = True
 
 
 def get_config_dir() -> Path:
@@ -136,7 +137,8 @@ def create_model_config_from_dict(config_dict: Dict[str, Any]) -> ModelConfig:
         gate_soft_cap=model_defaults.get("gate_soft_cap", 15.0),
         output_logit_soft_cap=model_defaults.get("output_logit_soft_cap", 30.0),
         chunk_size=model_defaults.get("chunk_size", 64),
-        mode=model_defaults.get("mode", "train"),
+        mode=model_defaults.get("mode", "inference"),
+        return_last_states=model_defaults.get("return_last_states", True),
     )
 
 

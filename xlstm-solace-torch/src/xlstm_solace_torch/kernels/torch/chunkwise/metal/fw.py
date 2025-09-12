@@ -57,8 +57,11 @@ def _load_metal_backend() -> None:
             extra_ldflags=["-framework", "Metal", "-framework", "Foundation"],
             verbose=False,
         )
-    except Exception:
-        _METAL_BACKEND = None
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load Metal backend for chunkwise operations. "
+            f"This is required for Metal acceleration. Error: {e}"
+        ) from e
 
 
 def mlstm_chunkwise__metal_fw(
