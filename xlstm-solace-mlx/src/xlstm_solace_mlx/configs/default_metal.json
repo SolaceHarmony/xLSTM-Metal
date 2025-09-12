@@ -1,0 +1,45 @@
+{
+  "model_name": "xLSTM-Solace-MLX-Metal",
+  "description": "Default Metal-accelerated MLX configuration for xLSTM-Solace-MLX",
+  
+  "device_settings": {
+    "backend": "metal",
+    "force_metal": true,
+    "allow_cpu_fallback": false
+  },
+  
+  "mlx_optimizations": {
+    "qr_dot_mode": "simd",
+    "fast_head": true,
+    "unified_memory": true,
+    "lazy_evaluation": true,
+    "memory_pool": true
+  },
+  
+  "model_defaults": {
+    "embedding_dim": 4096,
+    "num_heads": 8,
+    "num_blocks": 32,
+    "vocab_size": 50304,
+    "use_bias": false,
+    "norm_eps": 1e-6,
+    "qk_dim_factor": 0.5,
+    "v_dim_factor": 1.0,
+    "gate_soft_cap": 15.0,
+    "output_logit_soft_cap": 30.0,
+    "add_out_norm": true,
+    "mode": "train"
+  },
+  
+  "memory_management": {
+    "memory_fraction": 0.9,
+    "cache_limit": "8GB",
+    "lazy_loading": true
+  },
+  
+  "performance": {
+    "compile_kernels": true,
+    "optimize_memory": true,
+    "batch_size_hint": 1
+  }
+}

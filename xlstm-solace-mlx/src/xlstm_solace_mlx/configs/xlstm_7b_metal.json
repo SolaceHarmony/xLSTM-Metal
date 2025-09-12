@@ -1,0 +1,62 @@
+{
+  "model_name": "xLSTM-7B-MLX-Metal", 
+  "description": "7B parameter MLX model configuration with Metal acceleration",
+  "base_config": "default_metal.json",
+  
+  "device_settings": {
+    "backend": "metal",
+    "force_metal": true,
+    "allow_cpu_fallback": false
+  },
+  
+  "mlx_optimizations": {
+    "qr_dot_mode": "simd",
+    "fast_head": true,
+    "unified_memory": true,
+    "lazy_evaluation": true,
+    "memory_pool": true,
+    "graph_optimization": true
+  },
+  
+  "model_7b": {
+    "embedding_dim": 4096,
+    "num_heads": 8,
+    "num_blocks": 32,
+    "vocab_size": 50304,
+    "head_dim": 512,
+    "use_bias": false,
+    "norm_eps": 1e-6,
+    "qk_dim_factor": 0.5,
+    "v_dim_factor": 1.0,
+    "gate_soft_cap": 15.0,
+    "output_logit_soft_cap": 30.0,
+    "add_out_norm": true,
+    "add_post_blocks_norm": true,
+    "mode": "inference",
+    "ffn_proj_factor": 2.667,
+    "ffn_round_up_to_multiple_of": 64,
+    "mlstm_round_up_to_multiple_of": 64
+  },
+  
+  "inference_optimizations": {
+    "inference_mode": true,
+    "return_last_states": true,
+    "use_cache": true,
+    "compile_graph": true,
+    "optimize_for_inference": true
+  },
+  
+  "memory_management": {
+    "memory_fraction": 0.85,
+    "cache_limit": "12GB", 
+    "lazy_loading": true,
+    "garbage_collect_threshold": 0.8
+  },
+  
+  "weight_loading": {
+    "safetensors_direct": true,
+    "mmap_weights": true,
+    "lazy_weight_loading": true,
+    "strict_loading": false
+  }
+}
