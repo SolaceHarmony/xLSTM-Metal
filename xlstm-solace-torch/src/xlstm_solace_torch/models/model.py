@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Optional, Iterable
+from typing import Optional, Iterable, List, Tuple
 
 try:
     from xlstm_torch.kernels.torch.backend_module import (
@@ -25,6 +25,8 @@ from .generate import generate_tokens, get_sampling_fn
 
 mLSTMLayerStateType = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 mLSTMStateType = dict[int, mLSTMLayerStateType]
+# TorchScript-friendly state: fixed-length list of optional tuples (one per block)
+TSStateType = List[Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]]
 
 WeightModeType = Literal["single", "fused"]
 
@@ -192,6 +194,57 @@ class xLSTMTorch(nn.Module):
         )
         return tokens, state
 
+    @torch.jit.export
+    def forward_with_state(
+        self,
+        x: torch.Tensor,
+        state: TSStateType,
+    ) -> Tuple[torch.Tensor, TSStateType]:
+        """TorchScript-friendly forward with typed list state.
+
+        Args:
+            x: Input ids [B, S]
+            state: List of optional (c,n,m) tuples, length = num_blocks
+        Returns:
+            logits and updated typed state list
+        """
+        assert x.ndim == 2, f"Input must have shape [B, S], got {x.shape}"
+        x = self.embedding(x)
+        x, state = self.backbone.forward_with_state(x, state)
+        logits = self.lm_head(x)
+        logits_capped = soft_cap(logits, self.config.output_logit_soft_cap)
+        return logits_capped, state
+
+    @torch.jit.export
+    def generate_greedy(
+        self,
+        prefill_tokens: torch.Tensor,
+        max_length: int,
+    ) -> Tuple[torch.Tensor, TSStateType]:
+        """Scripted greedy generation (TorchScript-friendly).
+
+        Returns generated tokens and final typed state list.
+        """
+        device = self.embedding.weight.device
+        tokens = prefill_tokens.to(device)
+        # initialize typed state list
+        state: TSStateType = [None for _ in range(len(self.backbone.blocks))]
+
+        # Prefill pass (consume input)
+        logits, state = self.forward_with_state(tokens, state)
+
+        B = tokens.size(0)
+        # Greedy decode loop
+        last_token = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+        out = [last_token]
+        for _ in range(max_length - 1 if max_length > 0 else 0):
+            logits, state = self.forward_with_state(last_token, state)
+            last_token = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+            out.append(last_token)
+
+        generated = torch.cat(out, dim=1) if len(out) > 1 else out[0]
+        return generated, state
+
 
 class xLSTMBlockStack(nn.Module):
     """Block stack for xLSTMTorch."""
@@ -237,6 +290,26 @@ class xLSTMBlockStack(nn.Module):
         x = self.out_norm(x)
 
         return x, state
+
+    @torch.jit.export
+    def forward_with_state(
+        self, x: torch.Tensor, state: TSStateType
+    ) -> Tuple[torch.Tensor, TSStateType]:
+        # Ensure correct length
+        num_blocks = len(self.blocks)
+        if len(state) != num_blocks:
+            # Create a typed list with proper length
+            state = [None for _ in range(num_blocks)]
+
+        new_state: TSStateType = [None for _ in range(num_blocks)]
+        for i in range(num_blocks):
+            block = self.blocks[i]
+            block_state = state[i]
+            x, block_state_new = block(x, block_state)
+            new_state[i] = block_state_new
+
+        x = self.out_norm(x)
+        return x, new_state
 
 
 class FeedForward(nn.Module):
