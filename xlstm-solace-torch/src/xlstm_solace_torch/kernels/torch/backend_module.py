@@ -26,8 +26,9 @@ ChunkwiseKernelType = Literal[
     "chunkwise--triton_xl_chunk",
     # Production compiled variants
     "chunkwise--native_compiled_autograd",
-    "chunkwise--queued_compiled_steps",
-    "chunkwise--ray_compiled_steps",
+    "chunkwise--multiprocessing_metal",  # NEW: Replaces Ray, avoids memory leaks
+    "chunkwise--queued_compiled_steps",  # May have memory issues
+    # DISABLED: "chunkwise--ray_compiled_steps",  # Causes 30GB+ memory leaks
     # Fully-parallel comparators
     "parallel--native_autograd",
     "parallel--native_custbw",

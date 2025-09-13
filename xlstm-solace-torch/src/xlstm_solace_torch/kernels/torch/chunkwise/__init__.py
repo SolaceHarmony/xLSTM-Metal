@@ -42,7 +42,15 @@ except Exception:
     # Strict: if these fail to import/compile, keep registry without them
     pass
 
-# Add queued compiled-steps variant (GPU-only, MPS)
+# Add multiprocessing Metal variant (replaces Ray to avoid memory leaks)
+try:
+    from .multiprocessing_metal import mlstm_chunkwise__multiprocessing_metal
+    registry["multiprocessing_metal"] = mlstm_chunkwise__multiprocessing_metal
+except Exception:
+    pass
+
+# Add queued compiled-steps variant (GPU-only, MPS) 
+# NOTE: This may still have memory issues, prefer multiprocessing_metal
 try:
     from .queued_compiled.driver import (
         mlstm_chunkwise__queued_compiled_steps,
@@ -51,8 +59,8 @@ try:
 except Exception:
     pass
 
-# Add Ray actor-based compiled-steps variant (GPU-only, local_mode recommended)
-# DISABLED: Ray causes massive memory leaks and holds onto GPU memory
+# DISABLED: Ray causes massive memory leaks (30GB+ per inference) and holds GPU memory
+# Use multiprocessing_metal instead
 # try:
 #     from .ray_compiled.driver import (
 #         mlstm_chunkwise__ray_compiled_steps,

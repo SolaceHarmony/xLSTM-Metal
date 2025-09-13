@@ -36,12 +36,13 @@ class xLSTMSolaceLargeConfig:
     """The factor to determine the dimension of the value tensor."""
 
     # Apple Metal backend settings (instead of Triton)
-    chunkwise_kernel: str = "chunkwise--metal_autograd"
+    chunkwise_kernel: str = "chunkwise--multiprocessing_metal"
     """Kernel to use for chunkwise parallel processing - Apple Metal optimized.
     Available Apple kernels: 
+    - 'chunkwise--multiprocessing_metal' (NEW: Pure Metal + multiprocessing, NO Ray)
     - 'chunkwise--metal_autograd' (pure Metal acceleration)
-    - 'chunkwise--queued_compiled_steps' (Metal with queued compilation)
-    - 'chunkwise--ray_compiled_steps' (Metal with Ray compilation)
+    - 'chunkwise--queued_compiled_steps' (Metal with queued compilation, may leak memory)
+    WARNING: Avoid Ray kernels - they cause 30GB+ memory leaks per inference!
     """
     sequence_kernel: str = "native_sequence__metal"
     """The sequence kernel to use for processing sequences step-by-step - Apple Metal optimized.
