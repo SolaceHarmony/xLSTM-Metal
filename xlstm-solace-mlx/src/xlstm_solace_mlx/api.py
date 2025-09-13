@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Sequence, Tuple
-from .model import xLSTMSolaceMLX
+from .model import xLSTMMLX
 
 def create_xlstm_model(*,
     vocab_size: int,
@@ -11,7 +11,7 @@ def create_xlstm_model(*,
     head_num: int,
     dropout: float = 0.0,
 ):
-    return xLSTMSolaceMLX(
+    return xLSTMMLX(
         vocab_size=vocab_size,
         num_layers=int(num_layers),
         signature=tuple(int(x) for x in signature),

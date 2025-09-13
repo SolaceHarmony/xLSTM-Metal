@@ -59,12 +59,11 @@ try:
 except Exception:
     pass
 
-# DISABLED: Ray causes massive memory leaks (30GB+ per inference) and holds GPU memory
-# Use multiprocessing_metal instead
-# try:
-#     from .ray_compiled.driver import (
-#         mlstm_chunkwise__ray_compiled_steps,
-#     )
-#     registry["ray_compiled_steps"] = mlstm_chunkwise__ray_compiled_steps
-# except Exception:
-#     pass
+# Add distributed compiled-steps variant (using Ray for distribution)
+try:
+    from .distributed_compiled.driver import (
+        mlstm_chunkwise__distributed_compiled_steps,
+    )
+    registry["distributed_compiled_steps"] = mlstm_chunkwise__distributed_compiled_steps
+except Exception:
+    pass

@@ -2,7 +2,7 @@
 
 from typing import Optional, Union, List, Dict, Any
 import torch
-from .models import xLSTMSolaceTorch
+from .models import xLSTMTorch
 from .models.generate import generate_tokens, get_sampling_fn
 from .api import create_xlstm_7b_model, create_xlstm_model
 import json
@@ -13,7 +13,7 @@ class xLSTMInference:
     
     def __init__(
         self, 
-        model: Optional[xLSTMSolaceTorch] = None,
+        model: Optional[xLSTMTorch] = None,
         config_name: str = "xlstm_7b_metal",
         device: str = "mps"
     ):

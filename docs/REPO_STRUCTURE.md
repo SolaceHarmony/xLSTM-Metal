@@ -12,8 +12,8 @@ Repository Structure (High-level)
     - `native_sequence/`: pure-PyTorch sequence loop.
   - `parallel/`: fully-parallel (quadratic) kernels for analysis/experiments.
 
-- `xlstm-solace-torch/src/xlstm_solace_torch/*` – Solace Torch package (model, kernels, Ray orchestration)
-- `xlstm-solace-mlx/src/xlstm_solace_mlx/*` – Solace MLX package (model/components, CLI)
+- `xlstm-solace-torch/src/xlstm_torch/*` – Solace Torch package (model, kernels, Ray orchestration)
+- `xlstm-solace-mlx/src/xlstm_mlx/*` – Solace MLX package (model/components, CLI)
 
 - `scripts/`
   - Production tools only (optimizer, monitor, downloads, checks). Legacy runners/benchmarks/experiments moved under `lab/<date>-*/`.

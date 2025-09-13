@@ -14,7 +14,7 @@ Launch contract (summary)
 - Kernels receive a `shape` buffer (uint32) to pass extents; avoid hardcoding sizes in shader code.
 
 Runtime configuration
-- See `xlstm_solace_mlx/tools/mlx_runtime.py` and the MLX CLI.
+- See `xlstm_mlx/tools/mlx_runtime.py` and the MLX CLI.
 - The CLI layers JSON: packaged `mlx_golden.json` → `configs/mlx_hardware_params.json` → optional `--profile/--config` → CLI.
 - Typical tunables: QR dot mode, fast_head (tiled GEMM on final projection).
 

@@ -24,11 +24,11 @@ ChunkwiseKernelType = Literal[
     "chunkwise--native_custbw",
     "chunkwise--triton_limit_chunk",
     "chunkwise--triton_xl_chunk",
-    # Production compiled variants
+    # Production compiled variants  
     "chunkwise--native_compiled_autograd",
-    "chunkwise--multiprocessing_metal",  # NEW: Replaces Ray, avoids memory leaks
-    "chunkwise--queued_compiled_steps",  # May have memory issues
-    # DISABLED: "chunkwise--ray_compiled_steps",  # Causes 30GB+ memory leaks
+    "chunkwise--multiprocessing_metal",     # Metal with multiprocessing
+    "chunkwise--queued_compiled_steps",     # Metal with thread-based queuing
+    "chunkwise--distributed_compiled_steps", # Distributed processing with Ray
     # Fully-parallel comparators
     "parallel--native_autograd",
     "parallel--native_custbw",

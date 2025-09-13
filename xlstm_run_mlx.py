@@ -14,7 +14,7 @@ mlx_src = os.path.join(root, "xlstm-solace-mlx", "src")
 if mlx_src not in sys.path:
     sys.path.insert(0, mlx_src)
 
-from xlstm_solace_mlx.cli import main
+from xlstm_mlx.cli import main
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ def validate_metal_only_kernels(config):
     """Validate that configuration uses only Metal-accelerated kernels.
     
     Args:
-        config: xLSTMSolaceTorchConfig instance
+        config: xLSTMTorchConfig instance
         
     Raises:
         ValueError: If any kernel is not Metal-accelerated

@@ -41,7 +41,7 @@ def remove_exception_blocks(file_path: Path):
 
 def main():
     files_to_fix = [
-        "xlstm-solace-mlx/src/xlstm_solace_mlx/kernels/gemm_kernels.py",
+        "xlstm-solace-mlx/src/xlstm_mlx/kernels/gemm_kernels.py",
         "tools/mlx_tuning.py",
         "scripts/build/build_metal_extension.py",
         "tests/test_xlstm.py"

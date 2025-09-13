@@ -4,10 +4,10 @@ xLSTM Solace Torch
 PyTorch implementation of xLSTM with high-performance kernels for Apple Silicon and CUDA.
 """
 
-from .models import xLSTMSolaceTorch, xLSTMSolaceTorchConfig
+from .models import xLSTMTorch, xLSTMTorchConfig
 
 # Apple Metal optimized large models with official API compatibility
-from .xlstm_solace_large import xLSTMSolaceLarge, xLSTMSolaceLargeConfig
+from .xlstm_large import xLSTMLarge, xLSTMLargeConfig
 
 # Component exports for compatibility
 from .models.components import (
@@ -22,8 +22,8 @@ __version__ = "0.1.0"
 
 __all__ = [
     # Internal Apple implementation
-    "xLSTMSolaceTorch",
-    "xLSTMSolaceTorchConfig",
+    "xLSTMTorch",
+    "xLSTMTorchConfig",
     # Official API with Apple Metal acceleration
     "xLSTMLarge",
     "xLSTMLargeConfig", 

@@ -10,26 +10,26 @@ import torch
 from torch import nn
 from typing import Optional
 
-from .config import xLSTMSolaceLargeConfig
+from .config import xLSTMLargeConfig
 from ..models.model import (
-    xLSTMSolaceBlockStack, 
+    xLSTMBlockStack, 
     mLSTMStateType,
-    xLSTMSolaceTorchConfig
+    xLSTMTorchConfig
 )
 from ..models.components import soft_cap
 from ..models.generate import generate_tokens, get_sampling_fn
 
 
-class xLSTMSolaceLarge(nn.Module):
+class xLSTMLarge(nn.Module):
     """
     Apple Silicon optimized xLSTM Large model.
     
     Provides the same API as official xlstm.xlstm_large.model.xLSTMLarge
     but uses our Metal-accelerated kernels instead of Triton.
     """
-    config_class = xLSTMSolaceLargeConfig
+    config_class = xLSTMLargeConfig
 
-    def __init__(self, config: xLSTMSolaceLargeConfig):
+    def __init__(self, config: xLSTMLargeConfig):
         super().__init__()
         self.config = config
         
@@ -38,16 +38,16 @@ class xLSTMSolaceLarge(nn.Module):
         
         # Use our existing components with Metal acceleration
         self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim)
-        self.backbone = xLSTMSolaceBlockStack(internal_config)
+        self.backbone = xLSTMBlockStack(internal_config)
         self.lm_head = nn.Linear(
             in_features=config.embedding_dim, 
             out_features=config.vocab_size, 
             bias=False
         )
 
-    def _convert_to_internal_config(self, config: xLSTMSolaceLargeConfig) -> xLSTMSolaceTorchConfig:
-        """Convert xLSTMSolaceLargeConfig to our internal xLSTMSolaceTorchConfig."""
-        return xLSTMSolaceTorchConfig(
+    def _convert_to_internal_config(self, config: xLSTMLargeConfig) -> xLSTMTorchConfig:
+        """Convert xLSTMLargeConfig to our internal xLSTMTorchConfig."""
+        return xLSTMTorchConfig(
             embedding_dim=config.embedding_dim,
             num_heads=config.num_heads,
             num_blocks=config.num_blocks,

@@ -21,8 +21,8 @@ import math
 import time
 
 # Import our Metal implementations - REQUIRED, no fallbacks
-from xlstm_solace_torch.kernels.torch.metal.softcap import metal_soft_cap
-from xlstm_solace_torch.models.model import mLSTMBlock
+from xlstm_torch.kernels.torch.metal.softcap import metal_soft_cap
+from xlstm_torch.models.model import mLSTMBlock
 
 # Ensure Metal is available - this implementation is Metal-only
 if not torch.backends.mps.is_available():

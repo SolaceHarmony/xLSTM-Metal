@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Sequence, Tuple, Optional
-from .models import xLSTMSolaceTorch, xLSTMSolaceTorchConfig
+from .models import xLSTMTorch, xLSTMTorchConfig
 from .kernel_validation import validate_metal_only_kernels
 from .config_loader import load_model_config, ModelConfig
 
@@ -30,7 +30,7 @@ def create_xlstm_model(*,
         config_name: Name of configuration to load (default: "default_metal")
         
     Returns:
-        xLSTMSolaceTorch model instance
+        xLSTMTorch model instance
     """
     # Load default Metal configuration
     if config_name is None:
@@ -53,7 +53,7 @@ def create_xlstm_model(*,
     # Calculate qk_dim_factor based on head_dim and inp_dim
     qk_dim_factor = (head_dim * head_num) / inp_dim if inp_dim > 0 else default_config.qk_dim_factor
     
-    config = xLSTMSolaceTorchConfig(
+    config = xLSTMTorchConfig(
         embedding_dim=int(inp_dim),
         num_heads=int(head_num),
         num_blocks=int(num_layers),
@@ -74,7 +74,7 @@ def create_xlstm_model(*,
         chunk_size=default_config.chunk_size,
     )
     
-    model = xLSTMSolaceTorch(config)
+    model = xLSTMTorch(config)
     
     # Validate Metal-only acceleration
     validate_metal_only_kernels(config)
@@ -84,7 +84,7 @@ def create_xlstm_model(*,
     return model
 
 
-def create_xlstm_7b_model(*, config_name: str = "xlstm_7b_metal", device: str = "mps") -> xLSTMSolaceTorch:
+def create_xlstm_7b_model(*, config_name: str = "xlstm_7b_metal", device: str = "mps") -> xLSTMTorch:
     """Create xLSTM 7B model with Metal acceleration using bundled configuration.
     
     Args:
@@ -92,7 +92,7 @@ def create_xlstm_7b_model(*, config_name: str = "xlstm_7b_metal", device: str = 
         device: Device to place model on (must be 'mps')
         
     Returns:
-        xLSTMSolaceTorch model configured for 7B parameters
+        xLSTMTorch model configured for 7B parameters
     """
     # Load 7B configuration
     config_dict = load_model_config(config_name)
@@ -107,7 +107,7 @@ def create_xlstm_7b_model(*, config_name: str = "xlstm_7b_metal", device: str = 
             raise RuntimeError("MPS not available - this model requires Metal acceleration")
     
     # Create model configuration
-    config = xLSTMSolaceTorchConfig(
+    config = xLSTMTorchConfig(
         embedding_dim=config_dict.embedding_dim,
         num_heads=config_dict.num_heads,
         num_blocks=config_dict.num_blocks,
@@ -127,7 +127,7 @@ def create_xlstm_7b_model(*, config_name: str = "xlstm_7b_metal", device: str = 
         chunk_size=config_dict.chunk_size,
     )
     
-    model = xLSTMSolaceTorch(config)
+    model = xLSTMTorch(config)
     
     # Validate Metal-only acceleration
     validate_metal_only_kernels(config)

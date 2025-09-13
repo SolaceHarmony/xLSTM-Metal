@@ -1,7 +1,7 @@
-xlstm-solace-torch — import xlstm_solace_torch
+xlstm-solace-torch — import xlstm_torch
 
 Purpose
-- PyPI-ready packaging for the PyTorch path (MPS + Ray), import name `xlstm_solace_torch`.
+- PyPI-ready packaging for the PyTorch path (MPS + Ray), import name `xlstm_torch`.
 
 Disclaimer
 - Independent Solace fork; not affiliated with NX‑AI or the original xLSTM authors.

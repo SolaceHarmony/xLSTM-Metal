@@ -1,40 +1,39 @@
 """
 Apple Silicon backends for xLSTM mLSTM layer.
 
-This module provides the same API as the official xlstm.blocks.mlstm.backends
-but uses Apple Metal-accelerated kernels instead of Triton.
+This module provides the same API as official xlstm.blocks.mlstm.backends
+but uses Apple Metal streaming kernels instead of Ray or Triton.
 """
 
 import torch
 from typing import Optional, Tuple
-from ...kernels.torch.registry import get_mlstm_kernel, get_mlstm_step_kernel, get_mlstm_sequence_kernel
+from ...kernels.torch.registry import get_mlstm_kernel
 
 
 def chunkwise_simple(
     queries: torch.Tensor,
-    keys: torch.Tensor,  # B, NH, S, DH
-    values: torch.Tensor,  # B, NH, S, DH
-    igate_preact: torch.Tensor,  # B, NH, S
-    fgate_preact: torch.Tensor,  # B, NH, S
-    initial_C: Optional[torch.Tensor] = None,  # B, NH, DH, DH
-    initial_n: Optional[torch.Tensor] = None,  # B, NH, DH
-    initial_m: Optional[torch.Tensor] = None,  # B, NH, 1
+    keys: torch.Tensor,
+    values: torch.Tensor,
+    igate_preact: torch.Tensor,
+    fgate_preact: torch.Tensor,
+    initial_C: Optional[torch.Tensor] = None,
+    initial_n: Optional[torch.Tensor] = None,
+    initial_m: Optional[torch.Tensor] = None,
     chunk_size: int = 64,
     return_last_state: bool = False,
     eps: float = 1e-6,
     **kwargs,
 ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """
-    Apple Metal-accelerated chunkwise mLSTM implementation.
+    Official API-compatible chunkwise mLSTM with Apple Metal streaming.
     
-    Uses Metal kernels instead of Triton for Apple Silicon optimization.
-    Same API as official xlstm.blocks.mlstm.backends.chunkwise_simple.
+    Uses MPS streaming instead of Ray to eliminate memory leaks while 
+    providing the same API as xlstm.blocks.mlstm.backends.chunkwise_simple.
     """
-    # Use our Metal-accelerated chunkwise kernel
-    metal_kernel = get_mlstm_kernel("chunkwise--metal_autograd")
+    # Use streaming instead of Ray for memory efficiency
+    streaming_kernel = get_mlstm_kernel("chunkwise--mps_streaming")
     
-    # Map parameter names from official API to our kernel API
-    result = metal_kernel(
+    result = streaming_kernel(
         q=queries,
         k=keys,
         v=values,
@@ -58,18 +57,17 @@ def parallel_stabilized_simple(
     values: torch.Tensor,
     igate_preact: torch.Tensor,
     fgate_preact: torch.Tensor,
-    lower_triangular_matrix: torch.Tensor = None,
+    lower_triangular_matrix: Optional[torch.Tensor] = None,
     stabilize_rowwise: bool = True,
     eps: float = 1e-6,
     **kwargs,
 ) -> torch.Tensor:
     """
-    Apple Metal-accelerated parallel mLSTM implementation.
+    Official API-compatible parallel mLSTM with Apple Metal optimization.
     
-    Uses Metal kernels instead of Triton for Apple Silicon optimization.
-    Same API as official xlstm.blocks.mlstm.backends.parallel_stabilized_simple.
+    Same API as xlstm.blocks.mlstm.backends.parallel_stabilized_simple
+    but uses Metal kernels for Apple Silicon acceleration.
     """
-    # Use our Metal-accelerated parallel kernel
     parallel_kernel = get_mlstm_kernel("parallel--native_stablef_autograd")
     
     result = parallel_kernel(
@@ -78,6 +76,45 @@ def parallel_stabilized_simple(
         v=values,
         i=igate_preact,
         f=fgate_preact,
+        eps=eps,
+        **kwargs
+    )
+    
+    return result
+
+
+# Apple Metal optimized variants for power users
+def chunkwise_metal_optimized(
+    queries: torch.Tensor,
+    keys: torch.Tensor,
+    values: torch.Tensor,
+    igate_preact: torch.Tensor,
+    fgate_preact: torch.Tensor,
+    initial_C: Optional[torch.Tensor] = None,
+    initial_n: Optional[torch.Tensor] = None,
+    initial_m: Optional[torch.Tensor] = None,
+    chunk_size: int = 64,
+    return_last_state: bool = False,
+    eps: float = 1e-6,
+    **kwargs,
+) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    """
+    High-performance Metal-optimized chunkwise kernel.
+    Uses queued compiled steps for maximum Metal acceleration without Ray memory leaks.
+    """
+    optimized_kernel = get_mlstm_kernel("chunkwise--queued_compiled_steps")
+    
+    result = optimized_kernel(
+        q=queries,
+        k=keys,
+        v=values,
+        i=igate_preact,
+        f=fgate_preact,
+        c_initial=initial_C,
+        n_initial=initial_n,
+        m_initial=initial_m,
+        chunk_size=chunk_size,
+        return_last_states=return_last_state,
         eps=eps,
         **kwargs
     )
@@ -96,26 +133,25 @@ def recurrent_step_stabilized_simple(
     fgate_preact: torch.Tensor,
     eps: float = 1e-6,
     **kwargs,
-) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """
-    Apple Metal-accelerated recurrent step mLSTM implementation.
+    Official API-compatible recurrent step mLSTM with Apple Metal optimization.
     
-    Uses Metal kernels instead of Triton for Apple Silicon optimization.
-    Same API as official xlstm.blocks.mlstm.backends.recurrent_step_stabilized_simple.
+    Same API as xlstm.blocks.mlstm.backends.recurrent_step_stabilized_simple
+    but uses Metal step kernels for Apple Silicon acceleration.
     """
-    # Use our Metal-accelerated step kernel
-    step_kernel = get_mlstm_step_kernel("metal")
+    # Use Metal recurrent step kernel
+    step_kernel = get_mlstm_kernel("recurrent--metal")
     
-    # Our step kernel expects different parameter order
     result = step_kernel(
-        matC_old=c_state,
-        vecN_old=n_state,
-        scaM_old=m_state,
-        vecQ=q,
-        vecK=k,
-        vecV=v,
-        scaI=igate_preact,
-        scaF=fgate_preact,
+        c=c_state,
+        n=n_state,
+        m=m_state,
+        q=q,
+        k=k,
+        v=v,
+        i=igate_preact,
+        f=fgate_preact,
         eps=eps,
         **kwargs
     )
@@ -123,8 +159,7 @@ def recurrent_step_stabilized_simple(
     return result
 
 
-# Alternative kernels for different performance profiles
-def chunkwise_metal_optimized(
+def metal_streaming_optimized(
     queries: torch.Tensor,
     keys: torch.Tensor,
     values: torch.Tensor,
@@ -139,12 +174,11 @@ def chunkwise_metal_optimized(
     **kwargs,
 ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """
-    High-performance Metal-optimized chunkwise kernel.
-    Uses ray_compiled_steps for maximum Metal acceleration.
+    Pure MPS streaming kernel using PyTorch native MPS asynchronous execution.
     """
-    optimized_kernel = get_mlstm_kernel("chunkwise--ray_compiled_steps")
+    streaming_kernel = get_mlstm_kernel("chunkwise--mps_streaming")
     
-    result = optimized_kernel(
+    result = streaming_kernel(
         q=queries,
         k=keys,
         v=values,
@@ -155,6 +189,34 @@ def chunkwise_metal_optimized(
         m_initial=initial_m,
         chunk_size=chunk_size,
         return_last_states=return_last_state,
+        eps=eps,
+        **kwargs
+    )
+    
+    return result
+
+
+def metal_parallel_optimized(
+    queries: torch.Tensor,
+    keys: torch.Tensor,
+    values: torch.Tensor,
+    igate_preact: torch.Tensor,
+    fgate_preact: torch.Tensor,
+    eps: float = 1e-6,
+    **kwargs,
+) -> torch.Tensor:
+    """
+    Apple Metal-accelerated parallel mLSTM implementation.
+    Uses native Metal kernels for Apple Silicon optimization.
+    """
+    parallel_kernel = get_mlstm_kernel("parallel--native_stablef_autograd")
+    
+    result = parallel_kernel(
+        q=queries,
+        k=keys,
+        v=values,
+        i=igate_preact,
+        f=fgate_preact,
         eps=eps,
         **kwargs
     )

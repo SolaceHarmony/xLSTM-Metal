@@ -12,7 +12,7 @@ import torch
 import json
 from pathlib import Path
 
-from xlstm_solace_torch.apple_compat import create_apple_xlstm_config, xLSTMLarge
+from xlstm_torch.apple_compat import create_apple_xlstm_config, xLSTMLarge
 
 
 def test_apple_xlstm_7b():

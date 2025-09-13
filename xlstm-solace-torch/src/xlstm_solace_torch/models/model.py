@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 try:
-    from xlstm_solace_torch.kernels.torch.backend_module import (
+    from xlstm_torch.kernels.torch.backend_module import (
         mLSTMBackendConfig,
         mLSTMBackend,
         ChunkwiseKernelType,
@@ -12,7 +12,7 @@ try:
         BackendModeType,
     )
 except ImportError:
-    raise ImportError("Kernel backends not found. Ensure xlstm_solace_torch.kernels.torch is included in the package.")
+    raise ImportError("Kernel backends not found. Ensure xlstm_torch.kernels.torch is included in the package.")
 
 
 import torch
@@ -29,7 +29,7 @@ WeightModeType = Literal["single", "fused"]
 
 
 @dataclass
-class xLSTMSolaceTorchConfig:
+class xLSTMTorchConfig:
     embedding_dim: int
     """Embedding dimension of the model."""
     num_heads: int
@@ -112,15 +112,15 @@ class xLSTMSolaceTorchConfig:
     runtime_opts: dict = field(default_factory=dict)
 
 
-class xLSTMSolaceTorch(nn.Module):
-    config_class = xLSTMSolaceTorchConfig
+class xLSTMTorch(nn.Module):
+    config_class = xLSTMTorchConfig
 
-    def __init__(self, config: xLSTMSolaceTorchConfig):
+    def __init__(self, config: xLSTMTorchConfig):
         super().__init__()
         self.config = config
         self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim)
 
-        self.backbone = xLSTMSolaceBlockStack(config)
+        self.backbone = xLSTMBlockStack(config)
 
         self.lm_head = nn.Linear(
             in_features=config.embedding_dim, out_features=config.vocab_size, bias=False
@@ -187,11 +187,11 @@ class xLSTMSolaceTorch(nn.Module):
         return tokens, state
 
 
-class xLSTMSolaceBlockStack(nn.Module):
-    """Block stack for xLSTMSolaceTorch."""
-    config_class = xLSTMSolaceTorchConfig
+class xLSTMBlockStack(nn.Module):
+    """Block stack for xLSTMTorch."""
+    config_class = xLSTMTorchConfig
 
-    def __init__(self, config: xLSTMSolaceTorchConfig):
+    def __init__(self, config: xLSTMTorchConfig):
         super().__init__()
         self.config = config
 
@@ -234,7 +234,7 @@ class xLSTMSolaceBlockStack(nn.Module):
 
 
 class FeedForward(nn.Module):
-    def __init__(self, config: xLSTMSolaceTorchConfig):
+    def __init__(self, config: xLSTMTorchConfig):
         super().__init__()
         self.config = config
 
@@ -285,7 +285,7 @@ from .mlstm.layer import mLSTMLayer, mLSTMLayerConfig
 
 
 class mLSTMBlock(nn.Module):
-    def __init__(self, config: xLSTMSolaceTorchConfig):
+    def __init__(self, config: xLSTMTorchConfig):
         super().__init__()
         self.config = config
         self.norm_mlstm = RMSNorm(

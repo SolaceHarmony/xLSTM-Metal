@@ -2,7 +2,7 @@
 """Configuration utility for xLSTM-Solace packages."""
 
 import json
-from xlstm_solace_torch.config_loader import list_available_configs, load_config
+from xlstm_torch.config_loader import list_available_configs, load_config
 
 def show_all_configs():
     """Display all available configurations."""

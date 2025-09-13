@@ -45,7 +45,7 @@ model = create_xlstm_model(
 Use the Solace MLX CLI which layers JSON profiles from `configs/`:
 
 ```bash
-PYTHONPATH=.:xlstm-solace-mlx/src python -m xlstm_solace_mlx.cli \
+PYTHONPATH=.:xlstm-solace-mlx/src python -m xlstm_mlx.cli \
   --prompt "Hello" --max_new_tokens 16 \
   --profile mlx_hardware_params --print-config
 ```

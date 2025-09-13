@@ -3,7 +3,7 @@
 import torch
 import warnings
 from typing import List, Optional, Union, Dict, Any
-from .models import xLSTMSolaceTorch
+from .models import xLSTMTorch
 from .api import create_xlstm_model, create_xlstm_7b_model
 
 
@@ -14,7 +14,7 @@ def create_inference_model(
     head_dim: int,
     head_num: int,
     config_name: str = "default_metal",
-) -> xLSTMSolaceTorch:
+) -> xLSTMTorch:
     """Create a model optimized for inference with Metal acceleration.
     
     Args:
@@ -43,7 +43,7 @@ def create_inference_model(
 
 
 def generate_tokens(
-    model: xLSTMSolaceTorch,
+    model: xLSTMTorch,
     input_tokens: torch.Tensor,
     max_new_tokens: int = 50,
     temperature: float = 1.0,
@@ -53,7 +53,7 @@ def generate_tokens(
     """Generate tokens using xLSTM model with Metal acceleration.
     
     Args:
-        model: xLSTMSolaceTorch model in inference mode
+        model: xLSTMTorch model in inference mode
         input_tokens: Input token tensor of shape (batch_size, seq_len)
         max_new_tokens: Maximum number of tokens to generate
         temperature: Sampling temperature (1.0 = no change, <1.0 = more conservative)

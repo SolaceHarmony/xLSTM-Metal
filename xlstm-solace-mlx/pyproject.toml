@@ -34,11 +34,11 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 include = [
-  "xlstm_solace_mlx*",
+  "xlstm_mlx*",
 ]
 
 [project.scripts]
-xlstm-mlx = "xlstm_solace_mlx.cli:main"
+xlstm-mlx = "xlstm_mlx.cli:main"
 
 [tool.setuptools.package-data]
-"xlstm_solace_mlx" = ["metal/*.metal", "configs/*.json"]
+"xlstm_mlx" = ["metal/*.metal", "configs/*.json"]

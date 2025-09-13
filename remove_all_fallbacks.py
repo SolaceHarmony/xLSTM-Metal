@@ -31,7 +31,7 @@ def remove_all_fallbacks(file_path):
 
 def main():
     # Target the kernels file specifically
-    kernel_file = Path("xlstm-solace-mlx/src/xlstm_solace_mlx/kernels/gemm_kernels.py")
+    kernel_file = Path("xlstm-solace-mlx/src/xlstm_mlx/kernels/gemm_kernels.py")
     if kernel_file.exists():
         remove_all_fallbacks(kernel_file)
 

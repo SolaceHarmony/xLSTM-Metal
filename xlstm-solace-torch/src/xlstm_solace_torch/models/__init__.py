@@ -1,2 +1,2 @@
-from .model import xLSTMSolaceTorch, xLSTMSolaceTorchConfig  # noqa: F401
+from .model import xLSTMTorch, xLSTMTorchConfig  # noqa: F401
 

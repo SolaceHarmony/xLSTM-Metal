@@ -31,7 +31,7 @@ class FastHead(nn.Module):
         logits2d = logits2d + mx.expand_dims(self.b, 0)
         return logits2d.reshape(B, S, int(self.W.shape[0]))
 
-class xLSTMSolaceMLX(nn.Module):
+class xLSTMMLX(nn.Module):
     def __init__(
         self,
         vocab_size,

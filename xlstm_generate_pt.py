@@ -4,11 +4,11 @@ Run a local xLSTM HF checkpoint on Apple Silicon (MPS) using the compiled backen
 
 - Loads HF-style sharded safetensors from a local directory (config.json + model-*.safe        def _load_packaged_profile(backend):
             import importlib.resources as ir
-            pkg = 'xlstm_solace_torch.configs'
+            pkg = 'xlstm_torch.configs'
             fname = 'golden_ray.json' if 'ray' in backend else 'golden_queued.json'
             with ir.files(pkg).joinpath(fname).open('r') as f:
                 import json as _json
-                return _json.load(f)- Instantiates Solace xLSTMSolaceTorch with compiled kernels on MPS.
+                return _json.load(f)- Instantiates Solace xLSTMTorch with compiled kernels on MPS.
 - Maps known key differences (backbone.embeddings.weight -> embedding.weight).
 """
 import argparse
@@ -22,16 +22,16 @@ from safetensors import safe_open
 from transformers import AutoTokenizer
 import torch.nn.functional as F
 
-from xlstm_solace_torch.models.model import xLSTMSolaceTorch, xLSTMSolaceTorchConfig
+from xlstm_torch.models.model import xLSTMTorch, xLSTMTorchConfig
 
 # Global abort flag to allow SIGTERM-triggered graceful stop during decode
 _ABORT_FLAG = {"stop": False}
-from xlstm_solace_torch.kernels.torch.monitoring.memory import MemoryMonitor
-from xlstm_solace_torch.kernels.torch.monitoring.ray_metrics import make_gauges
+from xlstm_torch.kernels.torch.monitoring.memory import MemoryMonitor
+from xlstm_torch.kernels.torch.monitoring.ray_metrics import make_gauges
 
 
-def load_local_config(config_path: Path) -> xLSTMSolaceTorchConfig:
-    """Load HF config.json and build xLSTMSolaceTorchConfig.
+def load_local_config(config_path: Path) -> xLSTMTorchConfig:
+    """Load HF config.json and build xLSTMTorchConfig.
 
     - Copies all relevant fields from JSON.
     - On MPS, forces compiled MPS backends (Ray, metal, native_sequence__metal).
@@ -40,7 +40,7 @@ def load_local_config(config_path: Path) -> xLSTMSolaceTorchConfig:
     cfg = json.loads(config_path.read_text())
 
     # Base construction from JSON
-    mcfg = xLSTMSolaceTorchConfig(
+    mcfg = xLSTMTorchConfig(
         embedding_dim=cfg["embedding_dim"],
         num_heads=cfg["num_heads"],
         num_blocks=cfg["num_blocks"],
@@ -182,7 +182,7 @@ def main():
         # Helper: load packaged golden profile
         def _load_packaged_profile(backend: str) -> dict:
             import importlib.resources as ir
-            pkg = 'xlstm_solace_torch.configs'
+            pkg = 'xlstm_torch.configs'
             fname = 'golden_ray.json' if 'ray' in backend else 'golden_queued.json'
             with ir.files(pkg).joinpath(fname).open('r') as f:
                 import json as _json
@@ -250,7 +250,7 @@ def main():
         mcfg = load_local_config(base_cfg_path)
     else:
         # minimal synthetic config for dry-run printing
-        mcfg = xLSTMSolaceTorchConfig(
+        mcfg = xLSTMTorchConfig(
             embedding_dim=2048,
             num_heads=32,
             num_blocks=24,
@@ -317,7 +317,7 @@ def main():
         os.environ["XLSTM_CHUNKWISE_BACKEND"] = args.chunkwise_backend
         # Update the config view as well
         mcfg.chunkwise_kernel = f"chunkwise--{args.chunkwise_backend}"
-    model = xLSTMSolaceTorch(mcfg)
+    model = xLSTMTorch(mcfg)
     # Load weights
     print("Loading weights ...")
     sd = load_local_weights(model_dir)
@@ -445,7 +445,7 @@ def main():
             logits, state = model(next_tok, state)
             # Experimental CfC logit calibration (per-step)
             if args.cfc_calibrate != "off":
-                from xlstm_solace_torch.kernels.torch.experiments.cfc_logit_calibrator import CfCLogitCalibrator
+                from xlstm_torch.kernels.torch.experiments.cfc_logit_calibrator import CfCLogitCalibrator
                 if not hasattr(_greedy_gen_timed, "_cfc_inst"):
                     _greedy_gen_timed._cfc_inst = CfCLogitCalibrator(
                         vocab_size=logits.size(-1),

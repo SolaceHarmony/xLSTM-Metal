@@ -38,7 +38,7 @@ stitch outputs + states across bands per tile
 
 ```
 xlstm_generate_pt.py
-  └─ Solace model (xLSTMSolaceTorch) with runtime_opts
+  └─ Solace model (xLSTMTorch) with runtime_opts
       └─ compiled MPS step (metal), sequence native_sequence__metal,
          chunkwise {ray_compiled_steps|queued_compiled_steps}
 ```

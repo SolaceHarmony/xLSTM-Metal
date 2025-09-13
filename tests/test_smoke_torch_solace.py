@@ -1,13 +1,13 @@
 import os
 import torch
 
-from xlstm_solace_torch.models.model import xLSTMSolaceTorch, xLSTMSolaceTorchConfig
+from xlstm_torch.models.model import xLSTMTorch, xLSTMTorchConfig
 
 
 def test_torch_smoke_mps_metal():
     assert torch.backends.mps.is_available(), "MPS required (no CPU inference support)"
     # Configure compiled MPS backends explicitly.
-    cfg = xLSTMSolaceTorchConfig(
+    cfg = xLSTMTorchConfig(
         embedding_dim=64,
         num_heads=4,
         num_blocks=2,
@@ -23,7 +23,7 @@ def test_torch_smoke_mps_metal():
         inference_state_dtype="float32",
     )
     device = torch.device("mps")
-    model = xLSTMSolaceTorch(cfg).to(device).eval()
+    model = xLSTMTorch(cfg).to(device).eval()
     # Tiny batch and prompt on MPS
     x = torch.randint(low=0, high=cfg.vocab_size, size=(1, 5), dtype=torch.long, device=device)
     with torch.no_grad():

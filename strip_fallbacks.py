@@ -106,7 +106,7 @@ def remove_fallback_patterns(file_path):
 
 def main():
     # Find all Python files in the MLX source
-    mlx_src = Path("xlstm-solace-mlx/src/xlstm_solace_mlx")
+    mlx_src = Path("xlstm-solace-mlx/src/xlstm_mlx")
     
     for py_file in mlx_src.rglob("*.py"):
         if remove_fallback_patterns(py_file):

@@ -9,7 +9,7 @@ mlx_src = os.path.join(root, "xlstm-solace-mlx", "src")
 if mlx_src not in sys.path:
     sys.path.insert(0, mlx_src)
 
-from xlstm_solace_mlx.api import create_xlstm_model
+from xlstm_mlx.api import create_xlstm_model
 from safetensors import safe_open
 
 # Create MLX model

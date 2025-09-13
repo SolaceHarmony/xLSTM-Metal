@@ -274,7 +274,7 @@ def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optio
     shape = mx.array([m, d, kk], dtype=mx.uint32)
     if tpb is None:
         # Runtime config first
-                    from xlstm_solace_mlx.tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
+                    from xlstm_mlx.tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
 
 def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
     """Computes the top-k L2 distances and corresponding IDs for a batch of query vectors.
@@ -300,7 +300,7 @@ def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb:
     kk = int(min(k, 32))
     shape = mx.array([m, d, kk, b], dtype=mx.uint32)
     if tpb is None:
-                    from xlstm_solace_mlx.tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
+                    from xlstm_mlx.tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
 
 def device_topk_merge(vals_parts: mx.array, ids_parts: mx.array, k: int) -> Tuple[mx.array, mx.array]:
     """Merges partial top-k results on the device.

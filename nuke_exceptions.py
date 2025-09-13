@@ -45,7 +45,7 @@ def main():
     targets = [
         "tools/mlx_tuning.py",
         "tools/telem/aggregate.py", 
-        "xlstm-solace-mlx/src/xlstm_solace_mlx/kernels/gemm_kernels.py",
+        "xlstm-solace-mlx/src/xlstm_mlx/kernels/gemm_kernels.py",
         "scripts/optimizer/optimize_mps.py",
         "scripts/judge_with_ollama.py",
     ]

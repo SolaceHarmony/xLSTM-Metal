@@ -12,7 +12,7 @@ class _Noop:
 
 
 def make_gauges(prefix: str = "xlstm"):
-    """Create Ray dashboard gauges if Ray is initialized; otherwise return no-ops.
+    """Create distributed dashboard gauges if Ray is initialized; otherwise return no-ops.
 
     Returns a dict of callables: {name: gauge.set(value)}
     """

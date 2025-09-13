@@ -26,14 +26,14 @@ Assumptions: macOS on Apple Silicon, conda env `base` (Python 3.12). CUDA is not
 
 - MLX (no Ray):
   ```bash
-  PYTHONPATH=.:xlstm-solace-mlx/src conda run -n base python -m xlstm_solace_mlx.cli \
+  PYTHONPATH=.:xlstm-solace-mlx/src conda run -n base python -m xlstm_mlx.cli \
     --prompt "Hello" --max_new_tokens 16 --profile mlx_golden --print-config
   ```
 
 ## JSON Runtime Profiles (No Envs in Production)
 - Config files live under `./configs/` and inside the packages. Layering order (lowest → highest):
   1) `configs/runtime_defaults.json` (Torch) or `configs/mlx_hardware_params.json` (MLX)
-  2) Packaged “golden” profile: `xlstm_solace_torch/configs/golden_{ray|queued}.json` (Torch) or `xlstm_solace_mlx/configs/mlx_golden.json` (MLX)
+  2) Packaged “golden” profile: `xlstm_torch/configs/golden_{ray|queued}.json` (Torch) or `xlstm_mlx/configs/mlx_golden.json` (MLX)
   3) Auto-picked newest matching profile in `./configs` (Torch only; if no packaged golden or when `--profile` not given)
   4) Optional `--profile <name>` (looks in `./configs`)
   5) Optional `--config <path>`
@@ -50,7 +50,7 @@ Assumptions: macOS on Apple Silicon, conda env `base` (Python 3.12). CUDA is not
 - Ray CLI: `ray status`, `ray list actors`, `ray memory`, `ray stop --force`
 
 ## Memory Watchdog & Telemetry (Torch)
-- Module: `xlstm_solace_torch.kernels.torch.monitoring.memory`
+- Module: `xlstm_torch.kernels.torch.monitoring.memory`
   - Samples process RSS, system available/total, and `torch.mps` allocated/reserved.
   - Optional CSV logging via the runner flag `--mem-log`.
   - Thresholds: percentage of total or absolute MB; soft actions and hard abort.
@@ -69,8 +69,8 @@ Assumptions: macOS on Apple Silicon, conda env `base` (Python 3.12). CUDA is not
 - Debug memory: `scripts/xltop.py --json` (rss_mb, mps_alloc_mb); `/usr/bin/vmmap -summary <pid>` as fallback.
 
 ## Repo Layout (Solace Fork)
-- Solace Torch package: `xlstm-solace-torch/src/xlstm_solace_torch/*` (model, kernels, Ray orchestration, packaged configs)
-- Solace MLX package:  `xlstm-solace-mlx/src/xlstm_solace_mlx/*` (model/components, CLI, packaged configs)
+- Solace Torch package: `xlstm-solace-torch/src/xlstm_torch/*` (model, kernels, Ray orchestration, packaged configs)
+- Solace MLX package:  `xlstm-solace-mlx/src/xlstm_mlx/*` (model/components, CLI, packaged configs)
 - Production tools:    `scripts/` (optimizer, monitor, downloads, checks)
 - Legacy/experiments:  `lab/<date>-*/` (benchmarks, legacy runners, experiments)
 

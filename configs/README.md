@@ -24,14 +24,14 @@ How profiles are applied (Torch)
 How profiles are applied (MLX)
 - Base defaults from `mlx_hardware_params.json`, then an optional `--profile <name>` and `--config <path>`, then CLI.
 - Inspect the merged view with:
-  PYTHONPATH=.:xlstm-solace-mlx/src python -m xlstm_solace_mlx.cli --profile mlx_hardware_params --print-config
+  PYTHONPATH=.:xlstm-solace-mlx/src python -m xlstm_mlx.cli --profile mlx_hardware_params --print-config
 
 Optimizer integration (Torch)
 - The optimizer writes sweeps under `runs/mps_opt/<timestamp>/` and a `best.json` summarizing the best settings found (e.g., chunk_size, heads_per_band).
 - The Torch entry auto-applies the latest `runs/mps_opt/*/best.json` values for chunk_size/heads_per_band unless explicitly overridden.
 - Packaged goldens:
-  - `xlstm_solace_torch/configs/golden_ray.json` derives from `scripts/optimizer/configs/experiment_ray16k.json` (workers=4, heads_per_band=4, chunk_size=32) with safe memory defaults.
-  - `xlstm_solace_torch/configs/golden_queued.json` mirrors stable queued settings (workers=6, heads_per_band=4, chunk_size=32) with safe memory defaults.
+  - `xlstm_torch/configs/golden_ray.json` derives from `scripts/optimizer/configs/experiment_ray16k.json` (workers=4, heads_per_band=4, chunk_size=32) with safe memory defaults.
+  - `xlstm_torch/configs/golden_queued.json` mirrors stable queued settings (workers=6, heads_per_band=4, chunk_size=32) with safe memory defaults.
 - To force a specific local preset instead: pass `--profile <name>` (without `.json`).
 
 Tips

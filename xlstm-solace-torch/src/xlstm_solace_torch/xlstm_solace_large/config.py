@@ -9,7 +9,7 @@ from typing import Optional
 
 
 @dataclass
-class xLSTMSolaceLargeConfig:
+class xLSTMLargeConfig:
     """Configuration for xLSTM Solace Large model optimized for Apple Silicon."""
     
     embedding_dim: int
@@ -35,14 +35,13 @@ class xLSTMSolaceLargeConfig:
     v_dim_factor: float = 1.0
     """The factor to determine the dimension of the value tensor."""
 
-    # Apple Metal backend settings (instead of Triton)
-    chunkwise_kernel: str = "chunkwise--multiprocessing_metal"
+        # Apple Metal backend settings (instead of Triton)
+    chunkwise_kernel: str = "chunkwise--queued_compiled_steps"
     """Kernel to use for chunkwise parallel processing - Apple Metal optimized.
     Available Apple kernels: 
-    - 'chunkwise--multiprocessing_metal' (NEW: Pure Metal + multiprocessing, NO Ray)
-    - 'chunkwise--metal_autograd' (pure Metal acceleration)
-    - 'chunkwise--queued_compiled_steps' (Metal with queued compilation, may leak memory)
-    WARNING: Avoid Ray kernels - they cause 30GB+ memory leaks per inference!
+    - 'chunkwise--queued_compiled_steps' (RECOMMENDED: GPU-only queued compiled-step driver)
+    - 'chunkwise--metal_autograd' (Metal with autograd, stable fallback)
+    - 'chunkwise--multiprocessing_metal' (Metal acceleration with multiprocessing)
     """
     sequence_kernel: str = "native_sequence__metal"
     """The sequence kernel to use for processing sequences step-by-step - Apple Metal optimized.

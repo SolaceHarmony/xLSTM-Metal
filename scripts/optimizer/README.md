@@ -38,4 +38,4 @@ conda run -n base python scripts/optimizer/plot_opt_results.py --run $RUN
 
 Notes
 - The optimizer scripts import model helpers from `xlstm_generate_pt.py` and the Solace Torch package; they no longer rely on upstream namespaces.
-- For production runs, prefer the packaged golden profiles under `xlstm_solace_torch/configs/` and the JSON-first entry (`xlstm_generate_pt.py`).
+- For production runs, prefer the packaged golden profiles under `xlstm_torch/configs/` and the JSON-first entry (`xlstm_generate_pt.py`).

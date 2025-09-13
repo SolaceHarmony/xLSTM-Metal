@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from typing import Optional, Union, Literal
 
-from xlstm_solace_torch.kernels.torch.metal.softcap import metal_soft_cap
+from xlstm_torch.kernels.torch.metal.softcap import metal_soft_cap
 
 def soft_cap(values, cap_value=None):
     if cap_value is None:

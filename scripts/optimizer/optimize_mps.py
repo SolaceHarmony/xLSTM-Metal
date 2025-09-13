@@ -41,7 +41,7 @@ import torch
 from transformers import AutoTokenizer
 import gc
 
-from xlstm_solace_torch.models.model import xLSTMSolaceTorch as xLSTMLarge
+from xlstm_torch.models.model import xLSTMTorch as xLSTMLarge
 from xlstm_generate_pt import load_local_config, load_local_weights
 
 

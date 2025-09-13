@@ -1,7 +1,7 @@
-xlstm-solace-mlx — import xlstm_solace_mlx
+xlstm-solace-mlx — import xlstm_mlx
 
 Purpose
-- PyPI-ready packaging for the MLX path (Apple MLX, no Ray), import name `xlstm_solace_mlx`.
+- PyPI-ready packaging for the MLX path (Apple MLX, no Ray), import name `xlstm_mlx`.
 
 Disclaimer
 - Independent Solace fork; not affiliated with NX‑AI or the original xLSTM authors.

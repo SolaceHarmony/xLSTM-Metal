@@ -12,9 +12,9 @@ from typing import Literal, Optional, Union, Tuple
 import math
 
 # Import official xLSTM components
-from xlstm_solace_torch.models.components import MultiHeadLayerNorm, RMSNorm, soft_cap
-from xlstm_solace_torch.models.utils import round_up_to_next_multiple_of
-from xlstm_solace_torch.models.generate import generate_tokens, get_sampling_fn
+from xlstm_torch.models.components import MultiHeadLayerNorm, RMSNorm, soft_cap
+from xlstm_torch.models.utils import round_up_to_next_multiple_of
+from xlstm_torch.models.generate import generate_tokens, get_sampling_fn
 
 # Check device availability
 DEVICE = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else None

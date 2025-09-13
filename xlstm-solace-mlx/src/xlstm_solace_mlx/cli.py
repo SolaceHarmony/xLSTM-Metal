@@ -130,7 +130,7 @@ def main(argv: Optional[list[str]] = None) -> None:
     merged = {}
     # Always try packaged golden to provide polished defaults unless overridden later
     import importlib.resources as ir
-    with ir.files('xlstm_solace_mlx.configs').joinpath('mlx_golden.json').open('r') as f:
+    with ir.files('xlstm_mlx.configs').joinpath('mlx_golden.json').open('r') as f:
         import json as _json
         merged.update(_json.load(f))
     for d in (base, prof, cfg_file):

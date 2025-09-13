@@ -1,7 +1,7 @@
 import os
 import mlx.core as mx
 
-from xlstm_solace_mlx.api import create_xlstm_model
+from xlstm_mlx.api import create_xlstm_model
 
 
 def test_mlx_smoke_prefill_and_step():

@@ -361,7 +361,7 @@ def test_extension():
         
         # Import our extension
     
-        from xlstm_solace_torch.kernels.torch.metal import metal_soft_cap
+        from xlstm_torch.kernels.torch.metal import metal_soft_cap
 
         
         # Test tensor
@@ -400,7 +400,7 @@ def benchmark_metal_vs_pytorch(runs=100):
     
     import torch
     import time
-    from xlstm_solace_torch.kernels.torch.metal.softcap import metal_soft_cap
+    from xlstm_torch.kernels.torch.metal.softcap import metal_soft_cap
     
     device = torch.device("mps")
     test_tensor = torch.randn(10000, device=device) * 10

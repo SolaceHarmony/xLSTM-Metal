@@ -137,7 +137,7 @@ def memory_benchmark():
     # MLX memory test
     try:
         import mlx.core as mx
-        from xlstm_solace_mlx.api import create_xlstm_model
+        from xlstm_mlx.api import create_xlstm_model
         
         model = create_xlstm_model(
             vocab_size=10000,
@@ -172,7 +172,7 @@ def memory_benchmark():
     # PyTorch memory test
     try:
         import torch
-        from xlstm_solace_torch.api import create_xlstm_model
+        from xlstm_torch.api import create_xlstm_model
         
         model = create_xlstm_model(
             vocab_size=10000,

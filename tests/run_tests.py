@@ -145,7 +145,7 @@ def test_pytorch_implementation():
         import torch
         import torch.nn as nn
         import torch.optim as optim
-        from xlstm_solace_torch.api import create_xlstm_model
+        from xlstm_torch.api import create_xlstm_model
         
         device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else None
         if device is None:

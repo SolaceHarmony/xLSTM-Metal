@@ -6,10 +6,10 @@ import sys
 sys.path.insert(0, 'xlstm-solace-torch/src')
 
 import torch
-from xlstm_solace_torch.xlstm_solace_large import xLSTMSolaceLarge, xLSTMSolaceLargeConfig
+from xlstm_torch.xlstm_large import xLSTMLarge, xLSTMLargeConfig
 
 # Create config with native kernel instead of Metal
-config = xLSTMSolaceLargeConfig(
+config = xLSTMLargeConfig(
     embedding_dim=128,
     num_heads=4,
     num_blocks=2,
@@ -23,7 +23,7 @@ config = xLSTMSolaceLargeConfig(
 print(f"🔧 Testing with native kernels: {config.chunkwise_kernel}")
 
 # Create model
-model = xLSTMSolaceLarge(config)
+model = xLSTMLarge(config)
 print(f"✅ Model created: {sum(p.numel() for p in model.parameters()):,} parameters")
 
 # Test forward - no MPS needed for native kernels

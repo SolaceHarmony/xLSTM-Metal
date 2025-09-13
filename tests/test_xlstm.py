@@ -24,7 +24,7 @@ from dataclasses import dataclass
 # First test if we can import the components
 print("Testing imports...")
 try:
-    from xlstm_solace_torch.models.components import RMSNorm, soft_cap
+    from xlstm_torch.models.components import RMSNorm, soft_cap
     print("✓ Official xLSTM components imported")
 except ImportError as e:
     print(f"✗ Failed to import xLSTM components: {e}")
@@ -89,7 +89,7 @@ def test_mlstm_backend():
     print("\n3. Testing mLSTM backend...")
     
     # Import our implementation  
-    from xlstm_solace_torch.kernels.torch.backend_module import mLSTMBackendConfig, mLSTMBackend
+    from xlstm_torch.kernels.torch.backend_module import mLSTMBackendConfig, mLSTMBackend
     
     config = {
                 'vocab_size': 100,
@@ -125,21 +125,21 @@ def test_simple_forward():
     
     # Import our model
     try:
-        from xlstm_solace_torch.models import xLSTMSolaceTorch, xLSTMSolaceTorchConfig
+        from xlstm_torch.models import xLSTMTorch, xLSTMTorchConfig
         print("   ✓ Imported xLSTM implementation")
     except ImportError as e:
         print(f"   ✗ Failed to import: {e}")
         return
     
     # Create small model for testing
-    config = xLSTMSolaceTorchConfig(
+    config = xLSTMTorchConfig(
         embedding_dim=128,
         num_heads=2,
         num_blocks=1,
         vocab_size=100
     )
     
-    model = xLSTMSolaceTorch(config)
+    model = xLSTMTorch(config)
     model = model.to('mps')
     model.eval()
     

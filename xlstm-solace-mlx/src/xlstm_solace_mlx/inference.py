@@ -2,7 +2,7 @@
 
 from typing import Optional, Union, List, Dict, Any
 import mlx.core as mx
-from .model import xLSTMSolaceMLX
+from .model import xLSTMMLX
 from .api import create_xlstm_model
 import json
 
@@ -12,7 +12,7 @@ class xLSTMMLXInference:
     
     def __init__(
         self, 
-        model: Optional[xLSTMSolaceMLX] = None,
+        model: Optional[xLSTMMLX] = None,
         config_name: str = "xlstm_7b_metal"
     ):
         """Initialize MLX inference wrapper.

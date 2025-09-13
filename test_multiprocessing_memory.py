@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, 'xlstm-solace-torch/src')
 
 import torch
-from xlstm_solace_torch.xlstm_solace_large import xLSTMSolaceLarge, xLSTMSolaceLargeConfig
+from xlstm_torch.xlstm_large import xLSTMLarge, xLSTMLargeConfig
 
 
 def get_memory_usage():
@@ -23,7 +23,7 @@ def test_memory_leak():
     print("=" * 70)
     
     # Create a model with the new multiprocessing kernel
-    config = xLSTMSolaceLargeConfig(
+    config = xLSTMLargeConfig(
         embedding_dim=1024,
         num_heads=8,
         num_blocks=4,
@@ -42,11 +42,11 @@ def test_memory_leak():
     
     # Create model
     if torch.backends.mps.is_available():
-        model = xLSTMSolaceLarge(config).to('mps')
+        model = xLSTMLarge(config).to('mps')
         device = 'mps'
         print(f"✅ Using MPS device for Metal acceleration")
     else:
-        model = xLSTMSolaceLarge(config)
+        model = xLSTMLarge(config)
         device = 'cpu'
         print(f"⚠️  Using CPU (MPS not available)")
     

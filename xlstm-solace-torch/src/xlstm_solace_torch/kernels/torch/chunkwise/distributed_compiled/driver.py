@@ -22,7 +22,7 @@ except Exception as _e:
 
 from ...recurrent.metal.compiled import mlstm_recurrent_step__metal
 from ...monitoring.memory import MemoryMonitor, MemoryPressureAbort
-from ...monitoring.ray_metrics import make_gauges
+from ...monitoring.distributed_metrics import make_gauges
 
 # Optional Ray Compiled Graph (beta) support
 try:
@@ -40,7 +40,7 @@ def _ensure_ray(*, local_mode: bool | None = None, dashboard: bool | None = None
     """
     if ray is None:
         raise RuntimeError(
-            "Ray is not installed. Install ray or select a non-ray chunkwise backend."
+            "Ray is not installed. Install ray or select a non-distributed chunkwise backend."
         )
     if not ray.is_initialized():
         lm = local_mode if local_mode is not None else (os.environ.get("XLSTM_RAY_LOCAL_MODE", "1") == "1")
@@ -58,7 +58,7 @@ def _ensure_ray(*, local_mode: bool | None = None, dashboard: bool | None = None
 
 def _gpu_only_guard(t: torch.Tensor):
     if t.device.type != "mps":
-        raise RuntimeError("Ray compiled chunkwise requires MPS device; CPU/CUDA not allowed.")
+        raise RuntimeError("Distributed compiled chunkwise requires MPS device; CPU/CUDA not allowed.")
 
 
 @ray.remote(num_cpus=1, max_restarts=0, max_task_retries=0)  # type: ignore[misc]
@@ -267,7 +267,7 @@ class HeadBandWorkerAsync:
             return rss_mb, None, None
 
 
-def mlstm_chunkwise__ray_compiled_steps(
+def mlstm_chunkwise__distributed_compiled_steps(
     q: torch.Tensor,  # (B, NH, S, DHQK)
     k: torch.Tensor,  # (B, NH, S, DHQK)
     v: torch.Tensor,  # (B, NH, S, DHHV)

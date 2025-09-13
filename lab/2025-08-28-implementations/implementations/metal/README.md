@@ -11,8 +11,8 @@ Files and purpose
 - `xlstm_metal_kernels.py`, `xlstm_metal_hpc_limb*.py` — Metal kernel experiments and high‑precision limb variants that inspired the MLX fast metal kernels in the Solace MLX package.
 
 Relation to production
-- Torch (MPS): these led to the compiled step in `xlstm_solace_torch.kernels.torch.recurrent.metal.compiled` + `native_sequence__metal` loop + Ray/queued schedulers.
-- MLX: these informed the current MLX fast path in `xlstm_solace_mlx/kernels/*` where kernels are authored via `mx.fast.metal_kernel`.
+- Torch (MPS): these led to the compiled step in `xlstm_torch.kernels.torch.recurrent.metal.compiled` + `native_sequence__metal` loop + Ray/queued schedulers.
+- MLX: these informed the current MLX fast path in `xlstm_mlx/kernels/*` where kernels are authored via `mx.fast.metal_kernel`.
 
 Benchmarks and outputs
 - Related benchmark harnesses are co-located here under `../benchmarks-2025-09-11/` (migrated). They produced the decode/prefill tok/s CSVs/plots under `runs/benchmarks/*`.

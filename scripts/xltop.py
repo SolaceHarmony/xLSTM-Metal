@@ -50,7 +50,7 @@ from pathlib import Path
 # Ensure repo root on sys.path for direct invocation
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from xlstm_solace_torch.kernels.torch.monitoring.memory import snapshot, MemoryMonitor
+from xlstm_torch.kernels.torch.monitoring.memory import snapshot, MemoryMonitor
 import signal as _signal
 
 

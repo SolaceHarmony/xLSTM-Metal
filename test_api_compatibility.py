@@ -12,7 +12,7 @@ import torch
 import json
 from pathlib import Path
 
-from xlstm_solace_torch.xlstm_solace_large import xLSTMSolaceLarge, xLSTMSolaceLargeConfig
+from xlstm_torch.xlstm_large import xLSTMLarge, xLSTMLargeConfig
 
 
 def test_api_compatibility():
@@ -23,7 +23,7 @@ def test_api_compatibility():
     
     # Test 1: Config creation with official parameters
     print("\n1. Testing config compatibility...")
-    config = xLSTMSolaceLargeConfig(
+    config = xLSTMLargeConfig(
         embedding_dim=4096,
         num_heads=8,
         num_blocks=32,
@@ -44,7 +44,7 @@ def test_api_compatibility():
     
     # Test 2: Model instantiation
     print("\n2. Testing model instantiation...")
-    model = xLSTMSolaceLarge(config)
+    model = xLSTMLarge(config)
     print(f"✅ Model created: {model.__class__.__name__}")
     print(f"   Config class: {model.config_class.__name__}")
     print(f"   Parameters: {sum(p.numel() for p in model.parameters()):,}")

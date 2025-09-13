@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 import torch
 from torch import nn
-from xlstm_solace_torch.kernels.torch.backend_module import (
+from xlstm_torch.kernels.torch.backend_module import (
     mLSTMBackendConfig,
     mLSTMBackend,
 )

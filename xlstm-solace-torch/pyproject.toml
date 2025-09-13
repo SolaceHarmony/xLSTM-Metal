@@ -38,8 +38,8 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 include = [
-  "xlstm_solace_torch*",
+  "xlstm_torch*",
 ]
 
 [tool.setuptools.package-data]
-"xlstm_solace_torch" = ["configs/*.json"]
+"xlstm_torch" = ["configs/*.json"]
