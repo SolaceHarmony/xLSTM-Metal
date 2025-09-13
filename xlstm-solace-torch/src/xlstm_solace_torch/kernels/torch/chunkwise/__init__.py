@@ -52,10 +52,11 @@ except Exception:
     pass
 
 # Add Ray actor-based compiled-steps variant (GPU-only, local_mode recommended)
-try:
-    from .ray_compiled.driver import (
-        mlstm_chunkwise__ray_compiled_steps,
-    )
-    registry["ray_compiled_steps"] = mlstm_chunkwise__ray_compiled_steps
-except Exception:
-    pass
+# DISABLED: Ray causes massive memory leaks and holds onto GPU memory
+# try:
+#     from .ray_compiled.driver import (
+#         mlstm_chunkwise__ray_compiled_steps,
+#     )
+#     registry["ray_compiled_steps"] = mlstm_chunkwise__ray_compiled_steps
+# except Exception:
+#     pass
