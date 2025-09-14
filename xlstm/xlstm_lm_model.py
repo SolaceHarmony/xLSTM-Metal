@@ -1,7 +1,7 @@
 # Copyright (c) NXAI GmbH and its affiliates 2024
 # Maximilian Beck
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Sequence, List, Optional, Tuple
 
 import torch
 from torch import nn
@@ -61,6 +61,64 @@ class xLSTMLMModel(WeightDecayOptimGroupMixin, nn.Module):
         x, state = self.xlstm_block_stack.step(x, state=state, **kwargs)
         logits = self.lm_head(x)
         return logits, state
+
+    @torch.jit.export
+    def forward_with_states(
+        self,
+        idx: torch.Tensor,
+        mlstm_states: List[Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]],
+        conv_states: List[Optional[torch.Tensor]],
+        slstm_states: List[Optional[torch.Tensor]],
+    ) -> Tuple[
+        torch.Tensor,
+        List[Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]],
+        List[Optional[torch.Tensor]],
+        List[Optional[torch.Tensor]],
+    ]:
+        """TorchScript-friendly forward with explicit typed states per block."""
+        x = self.token_embedding(idx)
+        x = self.emb_dropout(x)
+        x, mlstm_states, conv_states, slstm_states = self.xlstm_block_stack.forward_with_states(
+            x, mlstm_states, conv_states, slstm_states
+        )
+        logits = self.lm_head(x)
+        return logits, mlstm_states, conv_states, slstm_states
+
+    @torch.jit.export
+    def generate_greedy(
+        self,
+        prefill_tokens: torch.Tensor,
+        max_length: int,
+    ) -> Tuple[
+        torch.Tensor,
+        List[Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]],
+        List[Optional[torch.Tensor]],
+        List[Optional[torch.Tensor]],
+    ]:
+        """Greedy decode using typed per-block states (TorchScript-friendly).
+
+        Returns generated tokens and final typed states.
+        """
+        device = self.token_embedding.weight.device
+        tokens = prefill_tokens.to(device)
+        nblocks = len(self.xlstm_block_stack.blocks)
+        mlstm_states: List[Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]] = [None for _ in range(nblocks)]
+        conv_states: List[Optional[torch.Tensor]] = [None for _ in range(nblocks)]
+        slstm_states: List[Optional[torch.Tensor]] = [None for _ in range(nblocks)]
+
+        logits, mlstm_states, conv_states, slstm_states = self.forward_with_states(
+            tokens, mlstm_states, conv_states, slstm_states
+        )
+        last = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+        outs = [last]
+        for _ in range(max_length - 1 if max_length > 0 else 0):
+            logits, mlstm_states, conv_states, slstm_states = self.forward_with_states(
+                last, mlstm_states, conv_states, slstm_states
+            )
+            last = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+            outs.append(last)
+        generated = torch.cat(outs, dim=1) if len(outs) > 1 else outs[0]
+        return generated, mlstm_states, conv_states, slstm_states
 
     def _create_weight_decay_optim_groups(self, **kwargs) -> tuple[Sequence[nn.Parameter], Sequence[nn.Parameter]]:
         weight_decay, no_weight_decay = super()._create_weight_decay_optim_groups(**kwargs)

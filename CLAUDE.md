@@ -1,6 +1,13 @@
-## CLAUDE Guidance (Read Me First)
+## CLAUDE Guidance (Read Me### Memory, GPU, and Process Hygiene
+- On macOS/MPS, respect unified memory constraints; prefer our watchdog instead of ad‑hoc guards.
+- For ANE/GPU execution, ensure clean shutdown of neural chip resources.
+- Don't leave background processes running. Confirm with `top`, `ps`, or system monitors.
 
-This repo runs on Apple Silicon with GPU-first compiled backends. These rules are strict so your help stays production‑safe and useful.
+### Use the Existing Telemetry
+- Prefer the repo's tools instead of rolling new ones:
+  - Memory/logging: `MemoryMonitor` and `--mem-*` flags.
+  - Terminal monitor: `scripts/xltop.py` (TUI, JSON/NDJSON modes).
+  - Neural chip monitoring: platform-specific ANE/GPU telemetry.s repo runs on Apple Silicon with GPU-first compiled backends. These rules are strict so your help stays production‑safe and useful.
 
 ### Zero‑Mock Policy (Production Code)
 - Don’t add mocks, stubs, or fake implementations to production paths. Use real implementations or leave TODOs in comments with precise next steps.
@@ -71,7 +78,6 @@ Use precise language: state constraints and the real implementation. If somethin
 - View a file chunk: `sed -n '1,200p' path/to/file.py`
 - Copy/rename: `cp src.py dst.py` • `mv old.py new.py`
 - Kill a PID: `kill -TERM <pid>` then `kill -KILL <pid>` if needed
-- Clean Ray residue: `ray stop --force`
 - Memory snapshot: `conda run -n base python scripts/xltop.py --json`
 
 ### Ask When Unsure

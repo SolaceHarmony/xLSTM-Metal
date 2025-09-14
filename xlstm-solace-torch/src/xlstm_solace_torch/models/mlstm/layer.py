@@ -1,13 +1,17 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, Optional
 import torch
 from torch import nn
+import torch.nn.functional as F
 from xlstm_torch.kernels.torch.backend_module import (
     mLSTMBackendConfig,
     mLSTMBackend,
 )
 from ..components import MultiHeadLayerNorm, soft_cap
+from xlstm_solace_torch.kernels.torch.recurrent.native_sequence import (
+    mlstm_recurrent_sequence__native_fw,
+)
 
 WeightModeType = Literal["single", "fused"]
 
@@ -116,16 +120,28 @@ class mLSTMLayer(nn.Module):
         assert x.ndim == 3, f"Input must have shape [B, S, D], got {x.shape}"
         B, S, _ = x.shape
         if self.config.weight_mode == "single":
-            q = self.q(x)
-            k = self.k(x)
-            v = self.v(x)
-            o_preact = self.ogate_preact(x)
-            i_preact = soft_cap(
-                self.igate_preact(x), cap_value=self.config.gate_soft_cap
-            )
-            f_preact = soft_cap(
-                self.fgate_preact(x), cap_value=self.config.gate_soft_cap
-            )
+            # TorchScript-friendly inter-op parallelism for independent linears
+            if torch.jit.is_scripting():
+                f_q = torch.jit._fork(F.linear, x, self.q.weight, self.q.bias)
+                f_k = torch.jit._fork(F.linear, x, self.k.weight, self.k.bias)
+                f_v = torch.jit._fork(F.linear, x, self.v.weight, self.v.bias)
+                f_o = torch.jit._fork(F.linear, x, self.ogate_preact.weight, self.ogate_preact.bias)
+                f_i = torch.jit._fork(F.linear, x, self.igate_preact.weight, self.igate_preact.bias)
+                f_f = torch.jit._fork(F.linear, x, self.fgate_preact.weight, self.fgate_preact.bias)
+
+                q = torch.jit._wait(f_q)
+                k = torch.jit._wait(f_k)
+                v = torch.jit._wait(f_v)
+                o_preact = torch.jit._wait(f_o)
+                i_preact = soft_cap(torch.jit._wait(f_i), cap_value=self.config.gate_soft_cap)
+                f_preact = soft_cap(torch.jit._wait(f_f), cap_value=self.config.gate_soft_cap)
+            else:
+                q = self.q(x)
+                k = self.k(x)
+                v = self.v(x)
+                o_preact = self.ogate_preact(x)
+                i_preact = soft_cap(self.igate_preact(x), cap_value=self.config.gate_soft_cap)
+                f_preact = soft_cap(self.fgate_preact(x), cap_value=self.config.gate_soft_cap)
 
         elif self.config.weight_mode == "fused":
             qkv_opreact = self.qkv_opreact(x)
@@ -156,16 +172,54 @@ class mLSTMLayer(nn.Module):
         else:
             c_initial, n_initial, m_initial = state
 
-        h, state = self.mlstm_backend(
-            q=q,
-            k=k,
-            v=v,
-            i=i_preact,
-            f=f_preact,
-            c_initial=c_initial,
-            n_initial=n_initial,
-            m_initial=m_initial,
-        )
+        # TorchScript path: use native recurrent sequence function to avoid dynamic backend dispatch
+        if torch.jit.is_scripting():
+            # reshape to (B, NH, S, DH)
+            q_seq = q.transpose(1, 2)
+            k_seq = k.transpose(1, 2)
+            v_seq = v.transpose(1, 2)
+            i_seq = i_preact  # already (B, NH, S)
+            f_seq = f_preact  # already (B, NH, S)
+            if state is None:
+                h, state = mlstm_recurrent_sequence__native_fw(
+                    q=q_seq,
+                    k=k_seq,
+                    v=v_seq,
+                    i=i_seq,
+                    f=f_seq,
+                    c_initial=None,
+                    n_initial=None,
+                    m_initial=None,
+                    return_last_states=True,
+                    eps=self.config.norm_eps,
+                    dtype_state=getattr(torch, self.config.mlstm_backend.inference_state_dtype),
+                )
+            else:
+                c_initial, n_initial, m_initial = state
+                h, state = mlstm_recurrent_sequence__native_fw(
+                    q=q_seq,
+                    k=k_seq,
+                    v=v_seq,
+                    i=i_seq,
+                    f=f_seq,
+                    c_initial=c_initial,
+                    n_initial=n_initial,
+                    m_initial=m_initial,
+                    return_last_states=True,
+                    eps=self.config.norm_eps,
+                    dtype_state=getattr(torch, self.config.mlstm_backend.inference_state_dtype),
+                )
+        else:
+            h, state = self.mlstm_backend(
+                q=q,
+                k=k,
+                v=v,
+                i=i_preact,
+                f=f_preact,
+                c_initial=c_initial,
+                n_initial=n_initial,
+                m_initial=m_initial,
+            )
         expected_h_shape = (
             B,
             self.config.num_heads,

@@ -34,7 +34,7 @@ def load_local_config(config_path: Path) -> xLSTMTorchConfig:
     """Load HF config.json and build xLSTMTorchConfig.
 
     - Copies all relevant fields from JSON.
-    - On MPS, forces compiled MPS backends (Ray, metal, native_sequence__metal).
+    - On MPS, forces compiled backends (native ANE kernels, metal, native_sequence__metal).
       Other fields (e.g., chunk_size) honor JSON unless CLI overrides are given.
     """
     cfg = json.loads(config_path.read_text())
@@ -72,10 +72,10 @@ def load_local_config(config_path: Path) -> xLSTMTorchConfig:
     if "ffn_round_up_to_multiple_of" in cfg:
         mcfg.ffn_round_up_to_multiple_of = int(cfg["ffn_round_up_to_multiple_of"])
 
-    # Backends: on MPS, force compiled defaults (ignore Triton in JSON)
+    # Backends: on MPS, force compiled defaults (native ANE + GPU coordination)
     if torch.backends.mps.is_available():
-        # Ray by default unless explicitly overridden via env
-        default_chunkwise = os.environ.get("XLSTM_CHUNKWISE_BACKEND", "ray_compiled_steps")
+        # Native ANE kernels by default unless explicitly overridden via env
+        default_chunkwise = os.environ.get("XLSTM_CHUNKWISE_BACKEND", "native_ane_kernels")
         mcfg.chunkwise_kernel = f"chunkwise--{default_chunkwise}"
         mcfg.sequence_kernel = "native_sequence__metal"
         mcfg.step_kernel = "metal"
@@ -127,11 +127,11 @@ def main():
     ap.add_argument("--max_new_tokens", type=int, default=20)
     # Optional overrides; if omitted, JSON+MPS defaults are used
     ap.add_argument("--workers", type=int, default=None, help="CPU coordinator threads (queued backend)")
-    ap.add_argument("--heads-per-band", type=int, default=None, help="Heads per task (MPS queued/Ray scheduler)")
+    ap.add_argument("--heads-per-band", type=int, default=None, help="Heads per task (ANE/GPU coordinated execution)")
     ap.add_argument("--streams", type=int, default=None, help="MPS streams (queued backend; defaults to workers)")
     ap.add_argument("--chunk-size", type=int, default=None, help="Chunk size for compiled backends (defaults from JSON)")
     ap.add_argument("--chunkwise-backend", type=str, default=None,
-                    help="Override chunkwise backend key (ray_compiled_steps, queued_compiled_steps, native_compiled_autograd)")
+                    help="Override chunkwise backend key (native_ane_kernels, queued_compiled_steps, native_compiled_autograd)")
     ap.add_argument("--stats-log", type=str, default=None, help="Optional CSV file to log rolling decode stats")
     ap.add_argument("--stats-every", type=int, default=1, help="Log every N decode steps to stats log")
     # Memory monitoring / watchdog (global logging; drivers also have watchdogs)

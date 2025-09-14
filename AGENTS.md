@@ -1,20 +1,20 @@
-# Agents Guide: Operating the Solace xLSTM Fork (Torch + MLX)
+# Agents Guide: Operating the Solac  2) Packaged "golden" profile: `xlstm_torch/configs/golden_ane.json` (Torch) or `xlstm_mlx/configs/mlx_golden.json` (MLX) xLSTM Fork (Torch + MLX)
 
 This guide is for humans and automation agents working in this repo. It explains what the project is, how to run it safely on Apple Silicon, where the production entrypoints live, and how runtime configuration works now (JSON‑first, no envs in production).
 
 Assumptions: macOS on Apple Silicon, conda env `base` (Python 3.12). CUDA is not a supported target for the Torch path; MLX may support CUDA on some platforms but is not a primary focus here.
 
 ## What This Project Is
-- Goal: High‑throughput xLSTM (mLSTM + sLSTM) inference on Apple Silicon via compiled PyTorch MPS backends (Torch) and a pure MLX path (MLX).
-- Core: Small compiled kernels scheduled across head‑bands and sequence tiles; all math on GPU.
-- Prefill backends (Torch):
-  - `chunkwise--ray_compiled_steps` — Ray actors coordinate compiled step kernels (default).
-  - `chunkwise--queued_compiled_steps` — CPU thread pool schedules compiled step kernels.
-  - `chunkwise--native_compiled_autograd` — pure compiled native comparator.
-- Decode (Torch): compiled step kernel in a loop (`step_kernel="metal"`; `sequence_kernel="native_sequence__metal"`).
+- Goal: High‑throughput xLSTM (mLSTM + sLSTM) inference on Apple Silicon via native ANE kernels, GPU backends (MPS/MLX), and CPU coordination.
+- Core: Native Apple Neural Engine kernels with GPU/CPU fallback; direct neural chip execution for maximum performance.
+- Execution paths:
+  - `native_ane_kernels` — Direct ANE execution with GPU/CPU orchestration (primary).
+  - `chunkwise--metal_compiled_steps` — Compiled Metal kernels with CPU coordination.
+  - `chunkwise--native_compiled_autograd` — Pure compiled native comparator.
+- Decode: Native ANE step kernels with stateful memory management.
 
 ## Production Entrypoints
-- Torch (MPS + Ray):
+- Torch (ANE + Metal):
   ```bash
   PYTORCH_ENABLE_MPS_FALLBACK=0 PYTHONPATH=.:xlstm-solace-torch/src \
   conda run -n base python xlstm_generate_pt.py \
@@ -24,7 +24,7 @@ Assumptions: macOS on Apple Silicon, conda env `base` (Python 3.12). CUDA is not
   ```
   - Inspect merged runtime: add `--print-effective-config`.
 
-- MLX (no Ray):
+- MLX (ANE + Metal):
   ```bash
   PYTHONPATH=.:xlstm-solace-mlx/src conda run -n base python -m xlstm_mlx.cli \
     --prompt "Hello" --max_new_tokens 16 --profile mlx_golden --print-config
@@ -46,8 +46,7 @@ Assumptions: macOS on Apple Silicon, conda env `base` (Python 3.12). CUDA is not
 - `scripts/xltop.py`: terminal monitor with TUI and machine‑friendly modes
   - Curses UI: `conda run -n base python scripts/xltop.py`
   - Polling: `--no-curses --poll 1.0`; JSON: `--json`; NDJSON stream: `--json-stream --poll 0.7`
-  - Stdin control (for agents): `--stdin-commands` then send lines: `kill <pid>`, `ray stop`, `empty_cache`, `interval <sec>`, `quit`
-- Ray CLI: `ray status`, `ray list actors`, `ray memory`, `ray stop --force`
+  - Stdin control (for agents): `--stdin-commands` then send lines: `kill <pid>`, `empty_cache`, `interval <sec>`, `quit`
 
 ## Memory Watchdog & Telemetry (Torch)
 - Module: `xlstm_torch.kernels.torch.monitoring.memory`
@@ -57,19 +56,13 @@ Assumptions: macOS on Apple Silicon, conda env `base` (Python 3.12). CUDA is not
 - Defaults tuned for safety (UMA): soft 85%, hard 92%, poll 200 ms.
 - Configure via JSON (`runtime_opts.mem_watchdog`) or CLI flags; envs are avoided in production.
 
-## Ray Lifecycle & Dashboard (Torch)
-- Local mode by default; dashboard optional.
-  - `--ray-local-mode {0|1}`; `--ray-dashboard [--ray-dashboard-port 8265]`; `--ray-keep-alive`.
-  - Actors are terminated on exit; auto‑shutdown if runner started Ray (unless `--ray-keep-alive`).
-  - Cleanup if needed: `ray stop --force`.
-
 ## Safety & Cleanup
 - Enforce GPU‑only: `PYTORCH_ENABLE_MPS_FALLBACK=0`.
 - If a run goes rogue: `kill -TERM <pid>` (then `-KILL`). xltop TUI has a `K` hotkey.
 - Debug memory: `scripts/xltop.py --json` (rss_mb, mps_alloc_mb); `/usr/bin/vmmap -summary <pid>` as fallback.
 
 ## Repo Layout (Solace Fork)
-- Solace Torch package: `xlstm-solace-torch/src/xlstm_torch/*` (model, kernels, Ray orchestration, packaged configs)
+- Solace Torch package: `xlstm-solace-torch/src/xlstm_torch/*` (model, kernels, ANE orchestration, packaged configs)
 - Solace MLX package:  `xlstm-solace-mlx/src/xlstm_mlx/*` (model/components, CLI, packaged configs)
 - Production tools:    `scripts/` (optimizer, monitor, downloads, checks)
 - Legacy/experiments:  `lab/<date>-*/` (benchmarks, legacy runners, experiments)

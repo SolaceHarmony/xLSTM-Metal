@@ -39,6 +39,65 @@ Next Steps (proposed)
   - No fallbacks; missing required fields raise immediately.
 - Intent: drive MAD-style profiles directly against upstream block stack without introducing aliases; keep API canonical.
 
+2025-09-13 — Real xLSTM, canonical Large
+- Replaced legacy `xlstm/xlstm_large/model.py` implementation with a thin wrapper that aliases
+  `xLSTMLarge` to `xLSTMLMModel` and `xLSTMLargeConfig` to `xLSTMLMModelConfig`.
+- This aligns the Large API with the upstream hybrid block stack (mLSTM/sLSTM striping, LN, gated FFN),
+  removing divergence from the older per-block FFN variant.
+
+2025-09-13 — Upstream TorchScript typed-state path
+- Added TorchScript-friendly typed-state forward on upstream models:
+  - `xLSTMBlockStack.forward_with_states(x, mlstm_states, conv_states, slstm_states)`
+    uses a static loop and a precomputed `block_types` list to avoid isinstance checks.
+  - `xLSTMLMModel.forward_with_states(...)` wraps embedding/unembedding and returns logits + updated states.
+- State containers:
+  - `mlstm_states[i]` holds `(c,n,m)` or None
+  - `conv_states[i]` holds conv ring buffer (Tensor) or None
+  - `slstm_states[i]` holds sLSTM cell state (Tensor) or None
+- This mirrors upstream step() semantics while providing static types that TorchScript can compile.
+
+2025-09-13 — Upstream TS harness
+- Added `scripts/ts/compile_upstream.py` to script upstream `xLSTMLMModel` and validate:
+  - `forward_with_states` on a small batch
+  - `generate_greedy` decoding with typed states
+- Uses mLSTM-only profiles for initial TS sanity; exposes `set_num_threads` and `set_num_interop_threads` for lab sweeps.
+
+2025-09-13 — Core ML MIL mLSTM step
+- Added `coreml/build_mlstm_step.py`: hand-assembles a MIL Program for a single mLSTM step cell
+  faithful to upstream equations (states c/n/m and inputs q/k/v/i/f). Outputs h and updated states.
+- MIL ops used: matmul, add, mul, exp, log, maximum, abs, real_div, expand_dims, squeeze. logsigmoid via `-log(1+exp(-x))`.
+- Shapes: symbolic batch; fixed NH, DHQK, DHV at build time to keep the MLProgram concrete for ANE/GPU.
+- Next: convert to MLProgram, wrap a Swift decode loop, and measure placement/latency on Apple Silicon.
+
+2025-09-13 — MLProgram export path
+- Added `coreml/export_mlstm_step.py`: converts the MIL Program to an MLProgram with flexible batch and fixed NH/D dims; saves `.mlpackage`.
+- `coreml/README.md` updated with export command and integration guidance (app-level stateful decode).
+
+2025-09-13 — Stateful decode MLProgram (full blocks)
+- Added `coreml/build_xlstm_decode_step.py`: unrolled MIL decode step with L blocks (mLSTM + FFN per block, LayerNorm everywhere). sLSTM path will be added next in the same builder.
+- Added `coreml/export_xlstm_decode_step.py`: declares per‑block (c,n,m) as Core ML states via `ct.StateType` and exports a stateful MLProgram.
+- Next: incorporate sLSTM block math and per‑block causal conv into the MIL graph, mark conv ring buffers as states, and freeze trained weights as MIL constants.
+
+2025-09-13 — Core ML tools reference
+- Cloned apple/coremltools to `/Volumes/emberstuff/Projects/coreml` for MIL/MLProgram format reference.
+- Useful paths:
+  - `coremltools/converters/mil/`: MIL builder, ops, and passes
+  - `docs/` and `docs-guides/`: MIL/MLProgram authoring and conversion guides
+  - `examples/`: end‑to‑end Core ML samples
+
+2025-09-13 — ONNX step + ORT Core ML EP lab
+- Added `onnx/build_mlstm_step.py`: constructs a single-step mLSTM ONNX graph (standard ops only).
+- Added `onnx/run_step_ort_coreml.py`: runs the step with ONNX Runtime using Core ML EP and reports output shapes.
+- Next: build an ONNX Scan-based sequence graph and measure decode latencies with the Core ML EP.
+
+2025-09-13 — ONNX Scan sequence + IR inspection
+- Added `onnx/build_mlstm_scan.py`: sequence model with `Scan` carrying (c,n,m) and emitting H over time.
+- Added `onnx/run_scan_ort_coreml.py`: executes the Scan graph on ONNX Runtime Core ML EP.
+- Added `scripts/ts/inspect_ir.py`: prints TorchScript IR for typed-state forward for fusion/graph review.
+
+2025-09-13 — TS thread sweep bench
+- Added `scripts/bench/ts_thread_sweep.py`: scripts upstream LM, runs typed-state forward, sweeps intra/inter‑op threads, prints timings.
+
 2025-09-13 — Minimal MAD harness (seed)
 - Added scripts to exercise a simple MAD-style task without external deps:
   - `scripts/mad/tasks.py`: in-context recall generator + accuracy with ignore index.
@@ -60,8 +119,9 @@ Next Steps (proposed)
   - `generate_greedy(prefill, max_len)`
 - Implemented `xLSTMBlockStack.forward_with_state` with fixed-length list state.
 - TS compile/test harness: `scripts/ts/compile_and_test.py` scripts a small config and runs a forward, with explicit `set_num_threads`/`set_num_interop_threads` knobs.
-- TS profile guidance: use native ATen backends (`chunkwise--native_compiled_autograd`, `native_sequence__native`, `step=native`) on MPS/CPU for scripting.
+- TS profile guidance: use native ATen backends (`chunkwise--native_compiled_autograd`, `native_sequence__native`, `step=native`) on MPS/CPU for scripting. Inside mLSTMLayer, scripted path bypasses dynamic backend dispatch and calls the native recurrent sequence directly to remain TorchScriptable.
 - Next: optional `_fork/_wait` in projection/gate stanzas for inter-op parallelism, then microbench thread sweeps recorded here.
+  - Implemented `_fork/_wait` for independent linears (q/k/v, gate preacts) in Torch mLSTMLayer when scripted; eager stays sequential. No math changes.
 
 Notes
 - No shims, no try/except fallbacks. Fail fast during study.

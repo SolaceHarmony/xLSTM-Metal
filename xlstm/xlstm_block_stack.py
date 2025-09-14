@@ -2,10 +2,11 @@
 # Maximilian Beck
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, Union, List, Tuple
 
 import torch
 from torch import nn
+import torch.jit
 
 from .blocks.mlstm.block import mLSTMBlock, mLSTMBlockConfig
 from .blocks.slstm.block import sLSTMBlock, sLSTMBlockConfig
@@ -82,6 +83,10 @@ class xLSTMBlockStack(nn.Module):
         self.config = config
 
         self.blocks = self._create_blocks(config=config)
+        # TorchScript-friendly block type map: 0 = mLSTM, 1 = sLSTM
+        self.block_types: List[int] = torch.jit.annotate(List[int], [])
+        for v in config.block_map:
+            self.block_types.append(int(v))
         if config.add_post_blocks_norm:
             self.post_blocks_norm = LayerNorm(ndim=config.embedding_dim)
         else:
@@ -122,6 +127,71 @@ class xLSTMBlockStack(nn.Module):
         x = self.post_blocks_norm(x)
 
         return x
+
+    @torch.jit.export
+    def forward_with_states(
+        self,
+        x: torch.Tensor,
+        mlstm_states: List[Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]],
+        conv_states: List[Optional[torch.Tensor]],
+        slstm_states: List[Optional[torch.Tensor]],
+    ) -> Tuple[
+        torch.Tensor,
+        List[Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]],
+        List[Optional[torch.Tensor]],
+        List[Optional[torch.Tensor]],
+    ]:
+        """TorchScript-friendly forward that carries explicit typed states per block.
+
+        Notes:
+            - mLSTM blocks use mlstm_states[i] (c,n,m) and conv_states[i]
+            - sLSTM blocks use slstm_states[i] and conv_states[i]
+        """
+        nblocks = len(self.blocks)
+        if len(mlstm_states) != nblocks:
+            mlstm_states = [None for _ in range(nblocks)]
+        if len(conv_states) != nblocks:
+            conv_states = [None for _ in range(nblocks)]
+        if len(slstm_states) != nblocks:
+            slstm_states = [None for _ in range(nblocks)]
+
+        new_mlstm_states: List[Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]] = [None for _ in range(nblocks)]
+        new_conv_states: List[Optional[torch.Tensor]] = [None for _ in range(nblocks)]
+        new_slstm_states: List[Optional[torch.Tensor]] = [None for _ in range(nblocks)]
+
+        for i in range(nblocks):
+            block = self.blocks[i]
+            btype = int(self.block_types[i])
+            if btype == 0:
+                # mLSTM block
+                x, st = block.step(
+                    x,
+                    **{
+                        "mlstm_state": mlstm_states[i],
+                        "conv_state": conv_states[i],
+                    },
+                )
+                if st is not None:
+                    # mLSTMLayer returns dict with keys
+                    new_mlstm_states[i] = st.get("mlstm_state")  # type: ignore[attr-defined]
+                    new_conv_states[i] = st.get("conv_state")  # type: ignore[attr-defined]
+            elif btype == 1:
+                # sLSTM block
+                x, st = block.step(
+                    x,
+                    **{
+                        "slstm_state": slstm_states[i],
+                        "conv_state": conv_states[i],
+                    },
+                )
+                if st is not None:
+                    new_slstm_states[i] = st.get("slstm_state")  # type: ignore[attr-defined]
+                    new_conv_states[i] = st.get("conv_state")  # type: ignore[attr-defined]
+            else:
+                raise ValueError(f"Invalid block type {btype}")
+
+        x = self.post_blocks_norm(x)
+        return x, new_mlstm_states, new_conv_states, new_slstm_states
 
     def step(
         self, x: torch.Tensor, state: dict[str, dict[str, tuple[torch.Tensor, ...]]] = None
