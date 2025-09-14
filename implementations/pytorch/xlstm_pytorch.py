@@ -12,6 +12,81 @@ from dataclasses import dataclass
 import math
 
 
+class MultiHeadLayerNorm(nn.Module):
+    """Multi-head layer normalization for proper head-aware processing."""
+    def __init__(self, num_heads: int, head_dim: int, eps: float = 1e-6, 
+                 force_float32_reductions: bool = True):
+        super().__init__()
+        self.num_heads = num_heads
+        self.head_dim = head_dim
+        self.eps = eps
+        self.force_float32_reductions = force_float32_reductions
+        
+        self.weight = nn.Parameter(torch.ones(num_heads * head_dim))
+        self.bias = nn.Parameter(torch.zeros(num_heads * head_dim))
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 3:
+            B, NH, DH = x.shape
+            assert NH == self.num_heads and DH == self.head_dim
+            
+            in_dtype = x.dtype
+            if self.force_float32_reductions:
+                x = x.float()
+            
+            x_mean = x.mean(dim=-1, keepdim=True)
+            x_var = x.var(dim=-1, keepdim=True, unbiased=False)
+            x_norm = (x - x_mean) * torch.rsqrt(x_var + self.eps)
+            x_norm = x_norm.to(in_dtype)
+            
+            x_flat = x_norm.reshape(B, -1)
+            return x_flat * self.weight + self.bias
+        else:
+            in_dtype = x.dtype
+            if self.force_float32_reductions:
+                x = x.float()
+            
+            x_mean = x.mean(dim=-1, keepdim=True)
+            x_var = x.var(dim=-1, keepdim=True, unbiased=False)
+            x_norm = (x - x_mean) * torch.rsqrt(x_var + self.eps)
+            x_norm = x_norm.to(in_dtype)
+            
+            return x_norm * self.weight + self.bias
+
+
+class GenerationConfig:
+    """Configuration for text generation"""
+    def __init__(
+        self,
+        max_length: int = 128,
+        temperature: float = 1.0,
+        top_k: int = 50,
+        top_p: float = 0.9,
+        do_sample: bool = True,
+        pad_token_id: int = 0,
+        eos_token_id: int = 1,
+        repetition_penalty: float = 1.0,
+        no_repeat_ngram_size: int = 0,
+        min_length: int = 0,
+        early_stopping: bool = False,
+        num_beams: int = 1,
+        use_cache: bool = True
+    ):
+        self.max_length = max_length
+        self.temperature = temperature
+        self.top_k = top_k
+        self.top_p = top_p
+        self.do_sample = do_sample
+        self.pad_token_id = pad_token_id
+        self.eos_token_id = eos_token_id
+        self.repetition_penalty = repetition_penalty
+        self.no_repeat_ngram_size = no_repeat_ngram_size
+        self.min_length = min_length
+        self.early_stopping = early_stopping
+        self.num_beams = num_beams
+        self.use_cache = use_cache
+
+
 @dataclass
 class xLSTMConfig:
     """Configuration for xLSTM model"""
@@ -114,32 +189,32 @@ def enlarge_as(x, target):
 
 class sLSTMBlock(nn.Module):
     """Scalar LSTM block with exponential gating and state normalization"""
-    def __init__(self, inp_dim, head_dim, head_num, p_factor=4/3, ker_size=4):
+    def __init__(self, config):
         super().__init__()
-        self.inp_dim = inp_dim
-        self.head_dim = head_dim
-        self.head_num = head_num
-        self.hidden_dim = head_dim * head_num
+        self.inp_dim = config.inp_dim
+        self.head_dim = config.head_dim
+        self.head_num = config.head_num
+        self.hidden_dim = config.head_dim * config.head_num
         
         self.inp_norm = nn.LayerNorm(config.inp_dim, eps=config.norm_eps)
         self.hid_norm = MultiHeadLayerNorm(config.head_num, config.head_dim, eps=config.norm_eps, 
                                           force_float32_reductions=config.norm_reduction_force_float32)
         
-        self.causal_conv = CausalConv1d(1, 1, kernel_size=ker_size)
+        self.causal_conv = CausalConv1d(1, 1, kernel_size=config.ker_size)
         
-        self.W_z = nn.Linear(inp_dim, self.hidden_dim)
-        self.W_i = nn.Linear(inp_dim, self.hidden_dim)
-        self.W_o = nn.Linear(inp_dim, self.hidden_dim)
-        self.W_f = nn.Linear(inp_dim, self.hidden_dim)
+        self.W_z = nn.Linear(config.inp_dim, self.hidden_dim)
+        self.W_i = nn.Linear(config.inp_dim, self.hidden_dim)
+        self.W_o = nn.Linear(config.inp_dim, self.hidden_dim)
+        self.W_f = nn.Linear(config.inp_dim, self.hidden_dim)
         
-        self.R_z = BlockLinear([(head_dim, head_dim)] * head_num)
-        self.R_i = BlockLinear([(head_dim, head_dim)] * head_num)
-        self.R_o = BlockLinear([(head_dim, head_dim)] * head_num)
-        self.R_f = BlockLinear([(head_dim, head_dim)] * head_num)
+        self.R_z = BlockLinear([(config.head_dim, config.head_dim)] * config.head_num)
+        self.R_i = BlockLinear([(config.head_dim, config.head_dim)] * config.head_num)
+        self.R_o = BlockLinear([(config.head_dim, config.head_dim)] * config.head_num)
+        self.R_f = BlockLinear([(config.head_dim, config.head_dim)] * config.head_num)
         
-        proj_dim = int(p_factor * self.hidden_dim)
+        proj_dim = int(config.p_factor[1] * self.hidden_dim)
         self.up_proj = nn.Linear(self.hidden_dim, 2 * proj_dim)
-        self.down_proj = nn.Linear(proj_dim, inp_dim)
+        self.down_proj = nn.Linear(proj_dim, config.inp_dim)
     
     @property
     def device(self):
@@ -230,31 +305,31 @@ class sLSTMBlock(nn.Module):
 
 class mLSTMBlock(nn.Module):
     """Matrix LSTM block with covariance update rule"""
-    def __init__(self, inp_dim, head_dim, head_num, p_factor=2, ker_size=4):
+    def __init__(self, config):
         super().__init__()
-        self.inp_dim = inp_dim
-        self.head_dim = head_dim
-        self.head_num = head_num
-        self.hidden_dim = head_dim * head_num
+        self.inp_dim = config.inp_dim
+        self.head_dim = config.head_dim
+        self.head_num = config.head_num
+        self.hidden_dim = config.head_dim * config.head_num
         
         self.inp_norm = nn.LayerNorm(config.inp_dim, eps=config.norm_eps)
         self.hid_norm = MultiHeadLayerNorm(config.head_num, config.head_dim, eps=config.norm_eps, 
                                           force_float32_reductions=config.norm_reduction_force_float32)
         
-        self.up_l_proj = nn.Linear(inp_dim, int(p_factor * inp_dim))
-        self.up_r_proj = nn.Linear(inp_dim, self.hidden_dim)
-        self.down_proj = nn.Linear(self.hidden_dim, inp_dim)
+        self.up_l_proj = nn.Linear(config.inp_dim, int(config.p_factor[0] * config.inp_dim))
+        self.up_r_proj = nn.Linear(config.inp_dim, self.hidden_dim)
+        self.down_proj = nn.Linear(self.hidden_dim, config.inp_dim)
         
-        self.causal_conv = CausalConv1d(1, 1, kernel_size=ker_size)
-        self.skip_connection = nn.Linear(int(p_factor * inp_dim), self.hidden_dim)
+        self.causal_conv = CausalConv1d(1, 1, kernel_size=config.ker_size)
+        self.skip_connection = nn.Linear(int(config.p_factor[0] * config.inp_dim), self.hidden_dim)
         
-        self.W_i = nn.Linear(int(p_factor * inp_dim), head_num)
-        self.W_f = nn.Linear(int(p_factor * inp_dim), head_num)
-        self.W_o = nn.Linear(int(p_factor * inp_dim), self.hidden_dim)
+        self.W_i = nn.Linear(int(config.p_factor[0] * config.inp_dim), config.head_num)
+        self.W_f = nn.Linear(int(config.p_factor[0] * config.inp_dim), config.head_num)
+        self.W_o = nn.Linear(int(config.p_factor[0] * config.inp_dim), self.hidden_dim)
         
-        self.W_q = nn.Linear(int(p_factor * inp_dim), self.hidden_dim)
-        self.W_k = nn.Linear(int(p_factor * inp_dim), self.hidden_dim)
-        self.W_v = nn.Linear(int(p_factor * inp_dim), self.hidden_dim)
+        self.W_q = nn.Linear(int(config.p_factor[0] * config.inp_dim), self.hidden_dim)
+        self.W_k = nn.Linear(int(config.p_factor[0] * config.inp_dim), self.hidden_dim)
+        self.W_v = nn.Linear(int(config.p_factor[0] * config.inp_dim), self.hidden_dim)
     
     @property
     def device(self):
@@ -526,29 +601,6 @@ def create_xlstm_model(config: Optional[xLSTMConfig] = None, device: str = 'cpu'
     
     model = xLSTM(config)
     return model.to(device)
-
-
-class GenerationConfig:
-    """Configuration for text generation"""
-    def __init__(
-        self,
-        max_length: int = 128,
-        temperature: float = 1.0,
-        top_k: int = 50,
-        top_p: float = 0.9,
-        do_sample: bool = True,
-        pad_token_id: int = 0,
-        eos_token_id: int = 0,
-        repetition_penalty: float = 1.0
-    ):
-        self.max_length = max_length
-        self.temperature = temperature
-        self.top_k = top_k
-        self.top_p = top_p
-        self.do_sample = do_sample
-        self.pad_token_id = pad_token_id
-        self.eos_token_id = eos_token_id
-        self.repetition_penalty = repetition_penalty
 
 
 def apply_repetition_penalty(logits: torch.Tensor, input_ids: torch.Tensor, penalty: float) -> torch.Tensor:

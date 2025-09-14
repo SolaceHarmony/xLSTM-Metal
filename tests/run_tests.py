@@ -145,30 +145,33 @@ def test_pytorch_implementation():
         import torch
         import torch.nn as nn
         import torch.optim as optim
-        from xlstm_pytorch import create_xlstm_model
+        from implementations.pytorch.xlstm_pytorch import create_xlstm_model, xLSTMConfig
         
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"\nUsing device: {device}")
         
         # Model configuration (same as MLX)
-        config = {
-            'vocab_size': 1000,
-            'num_layers': 4,
-            'signature': (3, 1),  # 3 mLSTM, 1 sLSTM pattern
-            'inp_dim': 256,
-            'head_dim': 32,
-            'head_num': 8,
-            'dropout': 0.1,
-            'device': device
-        }
+        config = xLSTMConfig(
+            vocab_size=1000,
+            num_layers=4,
+            signature=(3, 1),  # 3 mLSTM, 1 sLSTM pattern
+            inp_dim=256,
+            head_dim=32,
+            head_num=8,
+            dropout=0.1
+        )
         
         print(f"\nModel Configuration:")
-        for k, v in config.items():
-            if k != 'device':
-                print(f"  {k}: {v}")
+        print(f"  vocab_size: {config.vocab_size}")
+        print(f"  num_layers: {config.num_layers}")
+        print(f"  signature: {config.signature}")
+        print(f"  inp_dim: {config.inp_dim}")
+        print(f"  head_dim: {config.head_dim}")
+        print(f"  head_num: {config.head_num}")
+        print(f"  dropout: {config.dropout}")
         
         # Create model
-        model = create_xlstm_model(**config)
+        model = create_xlstm_model(config, device=device)
         
         # Count parameters
         param_count = sum(p.numel() for p in model.parameters())
@@ -177,7 +180,7 @@ def test_pytorch_implementation():
         # Test forward pass
         batch_size = 4
         seq_len = 50
-        tokens, targets = generate_synthetic_data(batch_size, seq_len, config['vocab_size'])
+        tokens, targets = generate_synthetic_data(batch_size, seq_len, config.vocab_size)
         tokens = torch.tensor(tokens, device=device)
         targets = torch.tensor(targets, device=device)
         

@@ -7,6 +7,7 @@ Advanced parallel processing with chunk-based sequence handling
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 from typing import Tuple, Optional, List, Literal
 from dataclasses import dataclass
 import math
@@ -404,7 +405,7 @@ class ChunkedParallelxLSTM(nn.Module):
         
         for i, block in enumerate(self.blocks):
             if self.config.use_gradient_checkpointing and self.training:
-                x, hidden_states[i] = torch.utils.checkpoint.checkpoint(
+                x, hidden_states[i] = checkpoint(
                     block, x, hidden_states[i], use_reentrant=False
                 )
             else:
