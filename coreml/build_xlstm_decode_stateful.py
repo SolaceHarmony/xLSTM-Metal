@@ -57,21 +57,17 @@ def _causal_conv_step(x, conv_state, conv_w):
     """
     # Form window: concat(prev, x) over time tap axis -> (B, K, D)
     x_unsq = mb.expand_dims(x=x, axes=[1])  # (B,1,D)
-    window = mb.concat(values=[conv_state, x_unsq], axis=1)
+    window = mb.concat(values=[conv_state, x_unsq], axis=1)  # (B,K,D)
 
     # Compute y_conv = sum_t (conv_w[t] * window[:, t, :])
-    K = mb.shape(x=conv_w)
-    # Broadcast conv_w to (K, 1) then (B,K,D)
-    w_unsq = mb.expand_dims(x=conv_w, axes=[-1])
-    w_brd = mb.mul(x=w_unsq, y=mb.const(val=1.0))  # (K,1)
-    w_brd = mb.expand_dims(x=w_brd, axes=[0])      # (1,K,1)
+    # Broadcast conv_w to (1,K,1) then elementwise mul with (B,K,D)
+    w_brd = mb.reshape(x=conv_w, shape=[1, -1, 1])
     y_scaled = mb.mul(x=window, y=w_brd)           # (B,K,D)
     y_conv = mb.reduce_sum(x=y_scaled, axes=[1])   # (B,D)
 
     # Next state: drop oldest tap, keep last K-1 taps (excluding current x)
     # next_state = window[:, 1:, :]
-    next_state = mb.slice_by_index(x=window, begin=[0, 1, 0], end=[0, 0, 0], 
-                                   begin_mask=[True, False, True], end_mask=[True, True, True])
+    next_state = mb.slice_by_index(x=window, begin=[1], end=[0], axes=[1], begin_mask=[False], end_mask=[True])
     return y_conv, next_state
 
 
