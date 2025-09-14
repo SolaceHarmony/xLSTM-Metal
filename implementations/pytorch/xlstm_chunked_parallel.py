@@ -232,8 +232,9 @@ class ChunkedParallelmLSTMBlock(nn.Module):
         self.down_proj = nn.Linear(self.hidden_dim, config.inp_dim)
         
         # Causal convolution
-        self.causal_conv = nn.Conv1d(1, 1, kernel_size=config.ker_size, 
-                                   padding=config.ker_size - 1)
+        conv_dim = int(p_factor * config.inp_dim)
+        self.causal_conv = nn.Conv1d(conv_dim, conv_dim, kernel_size=config.ker_size, 
+                                   padding=config.ker_size - 1, groups=conv_dim)
         self.skip_connection = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim)
         
         # Projections

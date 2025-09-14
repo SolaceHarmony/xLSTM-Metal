@@ -222,24 +222,30 @@ class mLSTMBlock(nn.Module):
         self.hidden_dim = config.head_dim * config.head_num
         p_factor = config.p_factor[0]  # mLSTM factor
         
+        # Calculate correct dimensions for q/k and v
+        self.qk_dim = int(config.inp_dim * config.qk_dim_factor)
+        self.v_dim = int(config.inp_dim * config.v_dim_factor)
+        self.qk_head_dim = self.qk_dim // config.head_num
+        self.v_head_dim = self.v_dim // config.head_num
+        
         self.inp_norm = nn.LayerNorm(config.inp_dim, eps=config.norm_eps)
-        self.hid_norm = MultiHeadLayerNorm(config.head_num, config.head_dim, eps=config.norm_eps, 
+        self.hid_norm = MultiHeadLayerNorm(config.head_num, self.v_head_dim, eps=config.norm_eps, 
                                           force_float32_reductions=config.norm_reduction_force_float32)
         
         self.up_l_proj = nn.Linear(config.inp_dim, int(p_factor * config.inp_dim))
-        self.up_r_proj = nn.Linear(config.inp_dim, self.hidden_dim)
-        self.down_proj = nn.Linear(self.hidden_dim, config.inp_dim)
+        self.up_r_proj = nn.Linear(config.inp_dim, self.v_dim)
+        self.down_proj = nn.Linear(self.v_dim, config.inp_dim)
         
         self.causal_conv = CausalConv1d(1, 1, kernel_size=config.ker_size)
-        self.skip_connection = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim)
+        self.skip_connection = nn.Linear(int(p_factor * config.inp_dim), self.v_dim)
         
         self.W_i = nn.Linear(int(p_factor * config.inp_dim), config.head_num)
         self.W_f = nn.Linear(int(p_factor * config.inp_dim), config.head_num)
-        self.W_o = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim)
+        self.W_o = nn.Linear(int(p_factor * config.inp_dim), self.v_dim)
         
-        self.W_q = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim)
-        self.W_k = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim)
-        self.W_v = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim)
+        self.W_q = nn.Linear(int(p_factor * config.inp_dim), self.qk_dim)
+        self.W_k = nn.Linear(int(p_factor * config.inp_dim), self.qk_dim)
+        self.W_v = nn.Linear(int(p_factor * config.inp_dim), self.v_dim)
     
     @property
     def device(self):
@@ -247,8 +253,8 @@ class mLSTMBlock(nn.Module):
     
     def init_hidden(self, batch_size):
         """Initialize hidden states"""
-        c_0 = torch.zeros(batch_size, self.head_num, self.head_dim, self.head_dim, device=self.device)
-        n_0 = torch.ones(batch_size, self.head_num, self.head_dim, device=self.device)
+        c_0 = torch.zeros(batch_size, self.head_num, self.v_head_dim, self.qk_head_dim, device=self.device)
+        n_0 = torch.ones(batch_size, self.head_num, self.qk_head_dim, device=self.device)
         m_0 = torch.zeros(batch_size, self.head_num, device=self.device)
         return c_0, n_0, m_0
     
@@ -276,13 +282,13 @@ class mLSTMBlock(nn.Module):
         x_c = F.silu(x_c.squeeze(1))
         x_skip = self.skip_connection(x_c)
         
-        q_t = self.W_q(x_c).view(bs, self.head_num, self.head_dim)
-        k_t = self.W_k(x_c).view(bs, self.head_num, self.head_dim) / math.sqrt(self.head_dim)
-        v_t = self.W_v(x_t).view(bs, self.head_num, self.head_dim)
+        q_t = self.W_q(x_c).view(bs, self.head_num, self.qk_head_dim)
+        k_t = self.W_k(x_c).view(bs, self.head_num, self.qk_head_dim) / math.sqrt(self.qk_head_dim)
+        v_t = self.W_v(x_t).view(bs, self.head_num, self.v_head_dim)
         
         i_t = soft_cap(self.W_i(x_c), self.config.gate_soft_cap)
         f_t = soft_cap(self.W_f(x_c), self.config.gate_soft_cap)
-        o_t = torch.sigmoid(self.W_o(x_t))
+        o_t = torch.sigmoid(self.W_o(x_t)).view(bs, self.head_num, self.v_head_dim)
         
         m_t = torch.max(f_t + m_tm1, i_t)
         i_t = torch.exp(i_t - m_t)
@@ -304,9 +310,10 @@ class mLSTMBlock(nn.Module):
         q_expanded = q_t.unsqueeze(-1)
         h_numerator = (c_t @ q_expanded).squeeze(-1)
         h_denominator = torch.sum(n_t * q_t, dim=-1, keepdim=True).clamp(min=1.0)
-        h_t = o_t * (h_numerator / h_denominator).view(bs, self.hidden_dim)
+        h_t = o_t * (h_numerator / h_denominator)
+        h_t_flat = h_t.view(bs, self.v_dim)  # Flatten to v_dim
         
-        out = self.hid_norm(h_t) + x_skip
+        out = self.hid_norm(h_t_flat) + x_skip
         out = out * F.silu(r_t)
         out = self.down_proj(out)
         
@@ -332,8 +339,11 @@ class mLSTMBlock(nn.Module):
         for t in range(seq_len):
             x_t = x[:, t, :]
             out, new_state = self.forward_step(x_t, current_state)
-            # Update state in-place for memory efficiency
-            current_state = self.update_hidden_inplace(current_state, new_state)
+            # Update state - use in-place only when not training to avoid gradient issues
+            if not self.training:
+                current_state = self.update_hidden_inplace(current_state, new_state)
+            else:
+                current_state = new_state
             outputs.append(out)
             
         output_seq = torch.stack(outputs, dim=1)
@@ -450,8 +460,11 @@ class sLSTMBlock(nn.Module):
         for t in range(seq_len):
             x_t = x[:, t, :]
             out, new_state = self.forward_step(x_t, current_state, use_conv)
-            # Update state in-place for memory efficiency
-            current_state = self.update_hidden_inplace(current_state, new_state)
+            # Update state - use in-place only when not training to avoid gradient issues
+            if not self.training:
+                current_state = self.update_hidden_inplace(current_state, new_state)
+            else:
+                current_state = new_state
             outputs.append(out)
             
         output_seq = torch.stack(outputs, dim=1)
@@ -518,8 +531,8 @@ class xLSTM(nn.Module):
         # Process sequence through blocks (sequence-level processing)
         for i, block in enumerate(self.blocks):
             x, new_state = block(x, hidden_states[i])
-            # Update hidden state in-place for memory efficiency
-            if hasattr(block, 'update_hidden_inplace'):
+            # Update hidden state - use in-place only during inference for memory efficiency
+            if hasattr(block, 'update_hidden_inplace') and not self.training:
                 hidden_states[i] = block.update_hidden_inplace(hidden_states[i], new_state)
             else:
                 hidden_states[i] = new_state

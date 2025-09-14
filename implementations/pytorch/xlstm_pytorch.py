@@ -280,8 +280,11 @@ class sLSTMBlock(nn.Module):
         for t in range(seq_len):
             x_t = x[:, t, :]
             out, new_state = self.forward_step(x_t, current_state, use_conv)
-            # Update state in-place for memory efficiency
-            current_state = self.update_hidden_inplace(current_state, new_state)
+            # Update state - use in-place only when not training to avoid gradient issues
+            if not self.training:
+                current_state = self.update_hidden_inplace(current_state, new_state)
+            else:
+                current_state = new_state
             outputs.append(out)
             
         output_seq = torch.stack(outputs, dim=1)
@@ -408,8 +411,11 @@ class mLSTMBlock(nn.Module):
         for t in range(seq_len):
             x_t = x[:, t, :]
             out, new_state = self.forward_step(x_t, current_state)
-            # Update state in-place for memory efficiency
-            current_state = self.update_hidden_inplace(current_state, new_state)
+            # Update state - use in-place only when not training to avoid gradient issues
+            if not self.training:
+                current_state = self.update_hidden_inplace(current_state, new_state)
+            else:
+                current_state = new_state
             outputs.append(out)
             
         output_seq = torch.stack(outputs, dim=1)
@@ -476,8 +482,8 @@ class xLSTM(nn.Module):
         # Process sequence through blocks (sequence-level processing)
         for i, block in enumerate(self.blocks):
             x, new_state = block(x, hidden_states[i])
-            # Update hidden state in-place for memory efficiency
-            if hasattr(block, 'update_hidden_inplace'):
+            # Update hidden state - use in-place only during inference for memory efficiency
+            if hasattr(block, 'update_hidden_inplace') and not self.training:
                 hidden_states[i] = block.update_hidden_inplace(hidden_states[i], new_state)
             else:
                 hidden_states[i] = new_state
