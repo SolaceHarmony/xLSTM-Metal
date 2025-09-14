@@ -16,6 +16,25 @@ import threading
 import queue
 from collections import defaultdict
 
+
+class CausalConv1d(nn.Module):
+    """Causal 1D convolution layer"""
+    def __init__(self, in_channels, out_channels, kernel_size, dilation=1):
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.dilation = dilation
+        self.padding = (kernel_size - 1) * dilation
+        self.conv = nn.Conv1d(in_channels, out_channels, kernel_size, 
+                              padding=self.padding, dilation=dilation)
+    
+    def forward(self, x):
+        # x shape: (batch, channels, length)
+        out = self.conv(x)
+        # Remove future positions for causality
+        if self.padding > 0:
+            out = out[:, :, :-self.padding]
+        return out
+
 @dataclass
 class StreamingxLSTMConfig:
     """Configuration for streaming inference xLSTM"""
@@ -163,7 +182,7 @@ class StreamingmLSTMBlock(nn.Module):
         self.up_r_proj = nn.Linear(config.inp_dim, self.hidden_dim, bias=False)
         
         # Streaming-optimized causal convolution
-        self.causal_conv = nn.Conv1d(1, 1, kernel_size=config.ker_size, bias=False)
+        self.causal_conv = CausalConv1d(1, 1, kernel_size=config.ker_size)
         self.conv_state = None  # For streaming
         
         # Skip connection
@@ -224,15 +243,14 @@ class StreamingmLSTMBlock(nn.Module):
             # Training mode or first call - use standard conv
             x_expanded = x.unsqueeze(1)  # (B, 1, S)
             conv_out = self.causal_conv(x_expanded)
-            # Remove future padding
-            if self.causal_conv.padding[0] > 0:
-                conv_out = conv_out[:, :, :-self.causal_conv.padding[0]]
             return conv_out.squeeze(1)
         else:
             # Streaming inference mode
             # Implement efficient streaming convolution
-            # For simplicity, using standard conv for now
-            return self.streaming_conv(x)
+            # For now, using standard conv (should be replaced with proper streaming conv)
+            x_expanded = x.unsqueeze(1)  # (B, 1, S)
+            conv_out = self.causal_conv(x_expanded)
+            return conv_out.squeeze(1)
     
     def forward_streaming(self, x: torch.Tensor, hidden_state: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """Optimized single-token streaming forward pass"""
