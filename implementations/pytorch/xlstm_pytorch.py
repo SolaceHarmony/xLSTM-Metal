@@ -54,37 +54,22 @@ class MultiHeadLayerNorm(nn.Module):
             return x_norm * self.weight + self.bias
 
 
+@dataclass
 class GenerationConfig:
     """Configuration for text generation"""
-    def __init__(
-        self,
-        max_length: int = 128,
-        temperature: float = 1.0,
-        top_k: int = 50,
-        top_p: float = 0.9,
-        do_sample: bool = True,
-        pad_token_id: int = 0,
-        eos_token_id: int = 1,
-        repetition_penalty: float = 1.0,
-        no_repeat_ngram_size: int = 0,
-        min_length: int = 0,
-        early_stopping: bool = False,
-        num_beams: int = 1,
-        use_cache: bool = True
-    ):
-        self.max_length = max_length
-        self.temperature = temperature
-        self.top_k = top_k
-        self.top_p = top_p
-        self.do_sample = do_sample
-        self.pad_token_id = pad_token_id
-        self.eos_token_id = eos_token_id
-        self.repetition_penalty = repetition_penalty
-        self.no_repeat_ngram_size = no_repeat_ngram_size
-        self.min_length = min_length
-        self.early_stopping = early_stopping
-        self.num_beams = num_beams
-        self.use_cache = use_cache
+    max_length: int = 128
+    temperature: float = 1.0
+    top_k: int = 50
+    top_p: float = 0.9
+    do_sample: bool = True
+    pad_token_id: int = 0
+    eos_token_id: int = 1
+    repetition_penalty: float = 1.0
+    no_repeat_ngram_size: int = 0
+    min_length: int = 0
+    early_stopping: bool = False
+    num_beams: int = 1
+    use_cache: bool = True
 
 
 @dataclass
