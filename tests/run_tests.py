@@ -213,7 +213,7 @@ def test_pytorch_implementation():
             logits = model(tokens)
             
             # Reshape for cross entropy
-            logits_flat = logits.view(-1, config['vocab_size'])
+            logits_flat = logits.view(-1, config.vocab_size)
             targets_flat = targets.view(-1)
             
             loss = criterion(logits_flat, targets_flat)
@@ -237,7 +237,7 @@ def test_pytorch_implementation():
         print("\n--- Memory Test ---")
         large_batch = 16
         large_seq = 128
-        large_tokens = torch.randint(0, config['vocab_size'], (large_batch, large_seq), device=device)
+        large_tokens = torch.randint(0, config.vocab_size, (large_batch, large_seq), device=device)
         
         model.eval()
         with torch.no_grad():
