@@ -43,32 +43,29 @@ def _linear(x, W, b):
     return y
 
 
-def _causal_conv_step(x, conv_state, conv_w):
+def _causal_conv_step(x, conv_state, conv_w, conv_b=None):
     """Depthwise 1D causal conv over time axis with a shared kernel per feature.
 
-    Shapes:
+    Shapes (faithful to xlstm CausalConv1d step):
       x:          (B, D)
-      conv_state: (B, K-1, D)
-      conv_w:     (K,)  (shared over D)
+      conv_state: (B, K, D)    ring buffer of last K frames
+      conv_w:     (K, D)       per-feature kernel weights
+      conv_b:     (D,) or None bias per feature
 
     Returns:
       y_conv:     (B, D)
       next_state: (B, K-1, D)
     """
-    # Form window: concat(prev, x) over time tap axis -> (B, K, D)
-    x_unsq = mb.expand_dims(x=x, axes=[1])  # (B,1,D)
-    window = mb.concat(values=[conv_state, x_unsq], axis=1)  # (B,K,D)
+    # Shift ring buffer left and place x at the end
+    rolled = mb.concat(values=[mb.slice_by_index(x=conv_state, begin=[1], end=[0], axes=[1], begin_mask=[False], end_mask=[True]),
+                               mb.expand_dims(x=x, axes=[1])], axis=1)  # (B,K,D)
 
-    # Compute y_conv = sum_t (conv_w[t] * window[:, t, :])
-    # Broadcast conv_w to (1,K,1) then elementwise mul with (B,K,D)
-    w_brd = mb.reshape(x=conv_w, shape=[1, -1, 1])
-    y_scaled = mb.mul(x=window, y=w_brd)           # (B,K,D)
-    y_conv = mb.reduce_sum(x=y_scaled, axes=[1])   # (B,D)
-
-    # Next state: drop oldest tap, keep last K-1 taps (excluding current x)
-    # next_state = window[:, 1:, :]
-    next_state = mb.slice_by_index(x=window, begin=[1], end=[0], axes=[1], begin_mask=[False], end_mask=[True])
-    return y_conv, next_state
+    # y = sum(window * conv_w, axis=1) + conv_b
+    y_scaled = mb.mul(x=rolled, y=conv_w)           # (B,K,D) * (K,D) broadcast
+    y_conv = mb.reduce_sum(x=y_scaled, axes=[1])    # (B,D)
+    if conv_b is not None:
+        y_conv = mb.add(x=y_conv, y=conv_b)
+    return y_conv, rolled
 
 
 def build_stateful_xlstm_decode_program(*,
@@ -97,7 +94,7 @@ def build_stateful_xlstm_decode_program(*,
     ln_mlstm_beta = []
     ln_ffn_gamma = []
     ln_ffn_beta = []
-    conv_w = []
+    conv_w = []; conv_b = []
 
     Wq = []; bq = []
     Wk = []; bk = []
@@ -119,7 +116,8 @@ def build_stateful_xlstm_decode_program(*,
         ln_mlstm_beta.append(mb.TensorSpec((D,), dtype=types.fp32))
         ln_ffn_gamma.append(mb.TensorSpec((D,), dtype=types.fp32))
         ln_ffn_beta.append(mb.TensorSpec((D,), dtype=types.fp32))
-        conv_w.append(mb.TensorSpec((K,), dtype=types.fp32))
+        conv_w.append(mb.TensorSpec((K, D), dtype=types.fp32))
+        conv_b.append(mb.TensorSpec((D,), dtype=types.fp32))
 
         Wq.append(mb.TensorSpec((D, NH*DHQK), dtype=types.fp32))
         bq.append(mb.TensorSpec((NH*DHQK,), dtype=types.fp32))
@@ -146,13 +144,13 @@ def build_stateful_xlstm_decode_program(*,
         Wdown.append(mb.TensorSpec((D, D), dtype=types.fp32))
         bdown.append(mb.TensorSpec((D,), dtype=types.fp32))
 
-        input_specs += [ln_mlstm_gamma[i], ln_mlstm_beta[i], ln_ffn_gamma[i], ln_ffn_beta[i], conv_w[i],
+        input_specs += [ln_mlstm_gamma[i], ln_mlstm_beta[i], ln_ffn_gamma[i], ln_ffn_beta[i], conv_w[i], conv_b[i],
                         Wq[i], bq[i], Wk[i], bk[i], Wv[i], bv[i], Wz[i], bz[i], Wi[i], bi[i], Wf[i], bf[i],
                         Wo[i], bo[i], Wout[i], bout[i], Wup_gate[i], bup_gate[i], Wup[i], bup[i], Wdown[i], bdown[i]]
 
-        # States (native MIL): conv_state_i (B,K-1,D), c_i (B,NH,DHQK,DHV), n_i (B,NH,DHQK), m_i (B,NH,1)
+        # States (native MIL): conv_state_i (B,K,D), c_i (B,NH,DHQK,DHV), n_i (B,NH,DHQK), m_i (B,NH,1)
         state_specs += [
-            mb.StateTensorSpec((B, K-1, D), dtype=types.fp32),
+            mb.StateTensorSpec((B, K, D), dtype=types.fp32),
             mb.StateTensorSpec((B, NH, DHQK, DHV), dtype=types.fp32),
             mb.StateTensorSpec((B, NH, DHQK), dtype=types.fp32),
             mb.StateTensorSpec((B, NH, 1), dtype=types.fp32),
@@ -166,7 +164,7 @@ def build_stateful_xlstm_decode_program(*,
     ):
         # unpack args into per-block params and states
         idx = 0
-        ln_ml_g = []; ln_ml_b = []; ln_ff_g = []; ln_ff_b = []; cw = []
+        ln_ml_g = []; ln_ml_b = []; ln_ff_g = []; ln_ff_b = []; cw = []; cb = []
         Wq_l=[]; bq_l=[]; Wk_l=[]; bk_l=[]; Wv_l=[]; bv_l=[]; Wi_l=[]; bi_l=[]; Wf_l=[]; bf_l=[]; Wo_l=[]; bo_l=[]; Wout_l=[]; bout_l=[]
         Wupg_l=[]; bupg_l=[]; Wup_l=[]; bup_l=[]; Wdown_l=[]; bdown_l=[]
         for i in range(L):
@@ -175,6 +173,7 @@ def build_stateful_xlstm_decode_program(*,
             ln_ff_g.append(args[idx]); idx+=1
             ln_ff_b.append(args[idx]); idx+=1
             cw.append(args[idx]); idx+=1
+            cb.append(args[idx]); idx+=1
             Wq_l.append(args[idx]); idx+=1
             bq_l.append(args[idx]); idx+=1
             Wk_l.append(args[idx]); idx+=1
@@ -226,7 +225,7 @@ def build_stateful_xlstm_decode_program(*,
             x_norm = _layer_norm(x, ln_ml_g[i], ln_ml_b[i], eps)
 
             # Causal conv prep
-            y_conv, cs_next = _causal_conv_step(x_norm, cs, cw[i])
+            y_conv, cs_next = _causal_conv_step(x_norm, cs, cw[i], cb[i])
 
             if block_types[i] == 0:
                 # mLSTM block
