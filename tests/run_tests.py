@@ -6,7 +6,13 @@ Comprehensive testing and benchmarking script for xLSTM implementations
 import time
 import numpy as np
 import sys
+import os
 from typing import Tuple, Optional
+
+# Add the repository root to Python path for imports
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
 
 def generate_synthetic_data(batch_size=4, seq_len=100, vocab_size=1000):
     """Generate synthetic sequence data for testing"""

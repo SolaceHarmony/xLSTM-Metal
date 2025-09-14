@@ -1,14 +1,15 @@
 
 """Debug dimensions issue"""
 
-from xlstm_metal_complete import xLSTMLargeConfig
+# Simulate the config values that cause the dimension mismatch
+class MockConfig:
+    def __init__(self):
+        self.embedding_dim = 128
+        self.num_heads = 2
+        self.v_dim_factor = 1.0
+        self.qk_dim_factor = 0.5
 
-config = xLSTMLargeConfig(
-    embedding_dim=128,
-    num_heads=2,
-    num_blocks=1,
-    vocab_size=100
-)
+config = MockConfig()
 
 # Calculate dimensions
 v_dim = int(config.embedding_dim * config.v_dim_factor)
