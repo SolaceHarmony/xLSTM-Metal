@@ -15,6 +15,7 @@ Usage
 from typing import Callable, Dict, Optional
 
 import mlx.core as mx
+
 try:
     from ..math_ops import sqrt_2_over_pi  # type: ignore
 except Exception:
@@ -85,7 +86,7 @@ _REGISTRY: Dict[str, Callable[[mx.array], mx.array]] = {
     "sigmoid": _sigmoid,
     "relu": _relu,
     "silu": _silu,
-    "gelu": _gelu_erf,        # alias to exact
+    "gelu": _gelu_erf,  # alias to exact
     "gelu_erf": _gelu_erf,
     "gelu_tanh": _gelu_tanh,
     "identity": _identity,
@@ -112,7 +113,9 @@ def get_activation(name: str, *, scale: Optional[float] = None,
     if key == 'lecun_tanh' and (scale is not None or slope is not None):
         sc = 1.7159 if scale is None else scale
         sl = 0.666 if slope is None else slope
+
         def _lecun_bound(x: mx.array) -> mx.array:
             return _lecun_tanh(x, sc, sl)
+
         return _lecun_bound
     return fn
