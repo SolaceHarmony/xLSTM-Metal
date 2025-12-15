@@ -93,6 +93,7 @@ from typing import Any, Dict
 
 import mlx.core as mx
 
+
 def _round_up(value: int, multiple_of: int) -> int:
     """Round value up to nearest multiple (matches HuggingFace xLSTMConfig).
 
@@ -165,7 +166,7 @@ def load_config(model_path: str) -> Dict[str, Any]:
     qk_factor = config['qk_dim_factor']
     v_factor = config['v_dim_factor']
     ffn_factor = config['ffn_proj_factor']
-    
+
     # NOTE: mirror canonical transformers/xLSTMConfig behavior for rounding
     round_multiple = config.get('mlstm_round_up_to_multiple_of', 64)
     config['qk_dim'] = _round_up(int(embedding_dim * qk_factor), round_multiple)
@@ -227,7 +228,8 @@ def get_mlstm_config(config: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def load_safetensor_shards(model_path: str, index_filename: str = "model.safetensors.index.json") -> Dict[str, mx.array]:
+def load_safetensor_shards(model_path: str, index_filename: str = "model.safetensors.index.json") -> Dict[
+    str, mx.array]:
     """Load every safetensor shard in ``model_path`` using ``mx.load``.
 
     Args:

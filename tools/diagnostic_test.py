@@ -3,6 +3,7 @@
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 import mlx.core as mx
@@ -58,6 +59,7 @@ try:
 except Exception as e:
     print(f"✗ Forward pass failed: {e}")
     import traceback
+
     traceback.print_exc()
 
 # Try with tokenizer
@@ -86,5 +88,6 @@ try:
 except Exception as e:
     print(f"✗ Forward pass with tokenizer failed: {e}")
     import traceback
+
     traceback.print_exc()
 

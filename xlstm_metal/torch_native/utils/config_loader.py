@@ -50,7 +50,7 @@ def load_config(model_path: str) -> Dict[str, Any]:
     qk_factor = config['qk_dim_factor']
     v_factor = config['v_dim_factor']
     ffn_factor = config['ffn_proj_factor']
-    
+
     # NOTE: mirror canonical transformers/xLSTMConfig behavior for rounding
     round_multiple = config.get('mlstm_round_up_to_multiple_of', 64)
     config['qk_dim'] = _round_up(int(embedding_dim * qk_factor), round_multiple)
@@ -101,5 +101,6 @@ def get_mlstm_config(config: Dict[str, Any]) -> Dict[str, Any]:
         'return_last_states': config['return_last_states'],
         'chunk_size': config['chunk_size']
     }
+
 
 __all__ = ["load_config", "get_mlstm_config"]
