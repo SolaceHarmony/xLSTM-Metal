@@ -4,7 +4,8 @@
 import torch
 import triton
 
-from kernel_development.xlstm.mlstm_block.mslstm_parallel.vendored.triton.limit_headdim import mlstm_parallel_bw_dKdV_kernel, \
+from kernel_development.xlstm.mlstm_block.mslstm_parallel.vendored.triton.limit_headdim import \
+    mlstm_parallel_bw_dKdV_kernel, \
     mlstm_parallel_bw_dQ_kernel
 
 
