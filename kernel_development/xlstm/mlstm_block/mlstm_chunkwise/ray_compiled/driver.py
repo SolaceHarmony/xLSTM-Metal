@@ -26,7 +26,8 @@ except Exception as _e:
         return _inner
 
 from kernel_development.xlstm.mlstm_block.mlstm_recurrent.recurrent.metal import mlstm_recurrent_step__metal
-from kernel_development.xlstm.mlstm_block.mlstm_chunkwise.ray.monitoring.memory import MemoryMonitor, MemoryPressureAbort
+from kernel_development.xlstm.mlstm_block.mlstm_chunkwise.ray.monitoring.memory import MemoryMonitor, \
+    MemoryPressureAbort
 from kernel_development.xlstm.mlstm_block.mlstm_chunkwise.ray.monitoring.ray_metrics import make_gauges
 
 # Optional Ray Compiled Graph (beta) support

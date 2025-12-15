@@ -30,4 +30,5 @@ def resolve_dtype(name: Optional[str], default: str = "float32") -> torch.dtype:
         key = default
     return _DTYPE_MAP[key]
 
+
 __all__ = ["resolve_dtype"]
