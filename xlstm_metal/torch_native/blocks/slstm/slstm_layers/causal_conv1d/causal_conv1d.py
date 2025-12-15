@@ -36,7 +36,7 @@ class CausalConv1d(nn.Module):
         self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.groups = groups
-        
+
         self.conv = nn.Conv1d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -44,7 +44,7 @@ class CausalConv1d(nn.Module):
             groups=groups,
             bias=bias
         )
-        
+
         # Causal padding
         self.padding = kernel_size - 1
 
