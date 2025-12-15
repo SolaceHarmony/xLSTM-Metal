@@ -69,7 +69,7 @@ class TokenizerBlock:
             for enc in encodings:
                 ids = enc.ids
                 if len(ids) < max_len:
-                    ids = ids + [self.pad_token_id] * (max_len - len(ids))
+                    ids += [self.pad_token_id] * (max_len - len(ids))
                 batch_ids.append(ids)
             return torch.tensor(batch_ids, dtype=torch.long, device=self.device)
 
@@ -103,5 +103,6 @@ class TokenizerBlock:
     def pad_token_id(self) -> int:
         self._ensure_tokenizer()
         return self._special_tokens["pad"]
+
 
 __all__ = ["TokenizerBlock", "TokenizerConfig"]
