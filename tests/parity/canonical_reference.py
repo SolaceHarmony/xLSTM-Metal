@@ -29,14 +29,14 @@ def canonical_rmsnorm(values: np.ndarray, eps: float, weight: np.ndarray | None 
     variance = np.mean(values * values, axis=-1, keepdims=True)
     normalized = values / np.sqrt(variance + eps)
     if weight is not None:
-        normalized = normalized * weight
+        normalized *= weight
     return normalized
 
 
 def canonical_multihead_rmsnorm(
-    values: np.ndarray,
-    eps: float,
-    weight: np.ndarray | None = None,
+        values: np.ndarray,
+        eps: float,
+        weight: np.ndarray | None = None,
 ) -> np.ndarray:
     """Per-head RMSNorm followed by flattening.
 
@@ -52,18 +52,18 @@ def canonical_multihead_rmsnorm(
     B, S, NH, DH = normalized.shape
     flattened = normalized.reshape(B, S, NH * DH)
     if weight is not None:
-        flattened = flattened * weight
+        flattened *= weight
     return flattened
 
 
 def canonical_mlstm_recurrent_sequence(
-    q: np.ndarray,
-    k: np.ndarray,
-    v: np.ndarray,
-    i_preact: np.ndarray,
-    f_preact: np.ndarray,
-    eps: float,
-    state: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
+        q: np.ndarray,
+        k: np.ndarray,
+        v: np.ndarray,
+        i_preact: np.ndarray,
+        f_preact: np.ndarray,
+        eps: float,
+        state: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
 ) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """Reference mLSTM recurrent kernel (sequential) following canonical formulas."""
 
