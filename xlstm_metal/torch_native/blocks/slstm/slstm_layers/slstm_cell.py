@@ -115,14 +115,14 @@ class sLSTMCell(nn.Module):
     """
 
     def __init__(
-        self,
-        input_size: int,
-        num_heads: int,
-        head_dim: int,
-        conv1d_kernel_size: int = 4,
-        use_bias: bool = False,
-        eps: float = 1e-6,
-        gate_soft_cap: float = 15.0,
+            self,
+            input_size: int,
+            num_heads: int,
+            head_dim: int,
+            conv1d_kernel_size: int = 4,
+            use_bias: bool = False,
+            eps: float = 1e-6,
+            gate_soft_cap: float = 15.0,
     ):
         super().__init__()
         self.input_size = input_size
@@ -163,10 +163,10 @@ class sLSTMCell(nn.Module):
         return cap * torch.tanh(x / cap)
 
     def forward(
-        self,
-        inputs: torch.Tensor,
-        hx: Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = None,
-        ts: Optional[float | torch.Tensor] = None,
+            self,
+            inputs: torch.Tensor,
+            hx: Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = None,
+            ts: Optional[float | torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
         """Process a single timestep.
 

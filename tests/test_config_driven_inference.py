@@ -184,8 +184,6 @@ def test_forward_pass(model, config):
         raise
 
 
-
-
 def main():
     """Run all tests"""
     print("\n" + "=" * 80)

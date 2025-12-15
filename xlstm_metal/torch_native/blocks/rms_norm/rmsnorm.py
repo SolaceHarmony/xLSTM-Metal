@@ -12,12 +12,12 @@ class RMSNormCell(nn.Module):
     """Applies RMSNorm across the last dimension."""
 
     def __init__(
-        self,
-        dims: int,
-        eps: float = 1e-6,
-        use_weight: bool = True,
-        force_float32_reductions: bool = True,
-        param_dtype: torch.dtype = torch.float32,
+            self,
+            dims: int,
+            eps: float = 1e-6,
+            use_weight: bool = True,
+            force_float32_reductions: bool = True,
+            param_dtype: torch.dtype = torch.float32,
     ) -> None:
         super().__init__()
         self.eps = eps

@@ -228,12 +228,12 @@ def create_group_names_from_cols(
     group_cols = data_df[colnames].astype(int)
     for i, row in group_cols.iterrows():
         group_str = ""
-        for i, colname in enumerate(colnames):
+        for j, colname in enumerate(colnames):
             if add_colname:
                 group_str += f"{colname}={row[colname]}"
             else:
                 group_str += f"{row[colname]}"
-            if i < len(colnames) - 1:
+            if j < len(colnames) - 1:
                 group_str += "\n"
         group_names.append(group_str)
     return group_names
@@ -313,11 +313,11 @@ def create_runtime_bar_plot(
         ylim: Y-limits. Defaults to None.
         y_label: Label for the y-axis. Defaults to None.
         x_label: Label for the x-axis. Defaults to "Sequence Length".
+        ax: Axis for the plot. Defaults to None.
+        add_colname: If True, the column name is added to the group names. Defaults to True.
 
     Returns:
         The figure object.
-        :param ax:
-        :param add_colname:
     """
 
     if legend_args is None:

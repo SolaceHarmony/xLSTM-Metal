@@ -69,16 +69,16 @@ class sLSTMOutputCell(nn.Module):
             output: Final output [B, S, input_size]
         """
         B, S, NH, H = h.shape
-        
+
         # Reshape for GroupNorm: [B*S, NH*H]
         h_reshaped = h.view(B * S, NH * H)
-        
+
         # GroupNorm expects [N, C], so we permute to put channels first
         # h_reshaped is [B*S, NH*H], we need to think of it as [B*S, C]
         # where C = NH*H. GroupNorm will see num_groups=NH, so each group is H channels.
         # This seems to match the intention.
         h_norm = self.group_norm(h_reshaped)
-        
+
         # Reshape back to [B, S, NH*H]
         h_norm = h_norm.view(B, S, NH * H)
 

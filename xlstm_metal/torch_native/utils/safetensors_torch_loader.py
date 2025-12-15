@@ -8,7 +8,8 @@ import torch
 from safetensors import safe_open
 
 
-def load_safetensor_shards(model_dir: str, index_filename: str = "model.safetensors.index.json") -> Dict[str, torch.Tensor]:
+def load_safetensor_shards(model_dir: str, index_filename: str = "model.safetensors.index.json") -> Dict[
+    str, torch.Tensor]:
     """Load all safetensor shards listed in the index into torch tensors.
 
     Args:
@@ -43,6 +44,7 @@ def load_safetensor_shards(model_dir: str, index_filename: str = "model.safetens
                 weights[name] = fshard.get_tensor(name)
 
     return weights
+
 
 __all__ = ["load_safetensor_shards"]
 

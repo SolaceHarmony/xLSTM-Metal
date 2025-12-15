@@ -10,7 +10,6 @@ import torch.nn as nn
 from .softcap_metal import soft_cap as metal_soft_cap
 
 
-
 class SoftCapCell(nn.Module):
     """NCPS-style cell that applies the soft-cap non-linearity."""
 

@@ -414,6 +414,7 @@ class WiredxLSTM(nn.Module):
 
     def _load_weights_from_dict(self, weights_dict: Dict[str, mx.array]):
         """Map safetensors weights to model parameters."""
+
         def _to_compute(tensor: mx.array) -> mx.array:
             return mx.array(tensor, dtype=self.compute_dtype)
 

@@ -203,7 +203,7 @@ class mLSTMParallelKernelCell(nn.Module):
                 NC=NC,
                 L=L,
                 state_dtype=self.state_dtype,
-                )
+            )
         )
 
         # ===== Phase 2: Parallel (Intra-chunk outputs) =====

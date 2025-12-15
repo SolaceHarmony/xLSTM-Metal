@@ -336,9 +336,9 @@ def mlstm_chunkwise_parallel_bw_dQ_metal(
     NC_arr = mx.array(NC, dtype=mx.int64)
     L_arr = mx.array(L, dtype=mx.int64)
     one = mx.array(1, dtype=mx.int64)
-    
+
     NC_plus_1 = mx.add(NC_arr, one)
-    
+
     strides = mx.array([
         NH * S * DHQK,  # str_matQK_B_NH
         DHQK,  # str_matQK_S

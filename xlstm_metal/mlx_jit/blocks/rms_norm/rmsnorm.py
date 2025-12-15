@@ -141,6 +141,7 @@ class RMSNormMetalKernel(nn.Module):
     apply(inputs_2d, weight, eps, force_float32) -> output_2d
         Execute kernel on 2D-reshaped input.
     """
+
     def __init__(self) -> None:
         super().__init__()
         # cache keyed by (dtype, force_float32)
@@ -227,6 +228,7 @@ class RMSNormCell(nn.Module):
     output : mx.array, same shape as input
         RMS-normalized and weight-scaled activations.
     """
+
     def __init__(
             self,
             dims: int,
@@ -304,7 +306,7 @@ class RMSNormCell(nn.Module):
         x_t = torch.from_numpy(x_np).to(torch.float32)
         ref = x_t * torch.rsqrt(torch.mean(x_t * x_t, dim=-1, keepdim=True) + float(self.eps.item()))
         if w_np is not None:
-            ref = ref * torch.from_numpy(w_np).to(torch.float32)
+            ref *= torch.from_numpy(w_np).to(torch.float32)
         ref_np = ref.numpy().astype(out.dtype)
         diff = mx.max(mx.abs(out - mx.array(ref_np, dtype=out.dtype))).item()
         assert diff < 1e-3, f"RMSNorm mismatch (max abs diff {diff})"
@@ -351,6 +353,7 @@ class MultiHeadRMSNormCell(nn.Module):
     output : mx.array [B, S, NH * DH]
         Normalized and flattened multi-head activations.
     """
+
     def __init__(
             self,
             num_heads: int,

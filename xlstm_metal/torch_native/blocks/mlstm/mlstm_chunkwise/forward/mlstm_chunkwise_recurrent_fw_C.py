@@ -37,10 +37,10 @@ def _load_ext():
 
 
 def _ensure_tensor(
-    tensor: Optional[torch.Tensor],
-    shape: Tuple[int, ...],
-    device: torch.device,
-    dtype: torch.dtype,
+        tensor: Optional[torch.Tensor],
+        shape: Tuple[int, ...],
+        device: torch.device,
+        dtype: torch.dtype,
 ) -> torch.Tensor:
     if tensor is None:
         return torch.zeros(shape, device=device, dtype=dtype)
@@ -51,20 +51,20 @@ def _ensure_tensor(
 
 
 def mlstm_chunkwise_recurrent_fw_C_metal(
-    matK: torch.Tensor,
-    matV: torch.Tensor,
-    vecF: torch.Tensor,
-    vecI: torch.Tensor,
-    matC_initial: Optional[torch.Tensor],
-    vecN_initial: Optional[torch.Tensor],
-    scaMinter_initial: Optional[torch.Tensor],
-    NC: int,
-    L: int,
-    siz_b_DHQK: int = 16,
-    siz_b_DHHV: int = 16,
-    save_states_every_nth_chunk: int = 1,
-    dbg: Optional[torch.Tensor] = None,
-    state_dtype: Optional[torch.dtype] = None,
+        matK: torch.Tensor,
+        matV: torch.Tensor,
+        vecF: torch.Tensor,
+        vecI: torch.Tensor,
+        matC_initial: Optional[torch.Tensor],
+        vecN_initial: Optional[torch.Tensor],
+        scaMinter_initial: Optional[torch.Tensor],
+        NC: int,
+        L: int,
+        siz_b_DHQK: int = 16,
+        siz_b_DHHV: int = 16,
+        save_states_every_nth_chunk: int = 1,
+        dbg: Optional[torch.Tensor] = None,
+        state_dtype: Optional[torch.dtype] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor] | Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Execute the chunkwise recurrent kernel via Metal on MPS."""
 

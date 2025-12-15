@@ -24,11 +24,9 @@ Note:
 
 import mlx.core as mx
 
-
 _HEADER = """#include <metal_stdlib>
 using namespace metal;
 """
-
 
 # ============================================================================
 # Depthwise Convolution Kernel
@@ -271,6 +269,7 @@ _COMPLEX_MUL_DD_SOURCE = r"""
     out[tid] = complex64_t(real_part, imag_part);
 """
 
+
 def complex_multiply_dd(a, b):
     """
     Extended-precision complex multiply using double-double arithmetic.
@@ -314,5 +313,6 @@ def complex_multiply_dd(a, b):
     )
 
     return out_flat.reshape(shape)
+
 
 AVAILABLE_KERNELS["complex_multiply_dd"] = complex_multiply_dd

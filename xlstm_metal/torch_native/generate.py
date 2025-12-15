@@ -155,7 +155,7 @@ class xLSTMRunner:
 
         # Apply temperature
         if temperature != 1.0:
-            next_logits = next_logits / temperature
+            next_logits /= temperature
 
         # Top-k filtering
         if top_k is not None and top_k > 0:
@@ -266,10 +266,10 @@ class xLSTMRunner:
         if not tokens and self.bos_token_id is not None:
             tokens = [int(self.bos_token_id)]
         elif (
-            tokens
-            and self.force_bos_token_insert
-            and self.bos_token_id is not None
-            and tokens[0] != int(self.bos_token_id)
+                tokens
+                and self.force_bos_token_insert
+                and self.bos_token_id is not None
+                and tokens[0] != int(self.bos_token_id)
         ):
             tokens = [int(self.bos_token_id)] + tokens
 

@@ -461,7 +461,7 @@ def mlstm_chunkwise_parallel_fw_Hintra_metal(
     params = mx.array([B, NH, S, DHQK, DHHV, NC, L, siz_b_LQ, siz_b_LKV,
                        siz_b_DHQK, siz_b_DHHV], dtype=mx.uint32)
     scalar_params = mx.array([qk_scale, eps, minimum_max_val], dtype=mx.float32)
-    
+
     # Prepare strides
     strides = mx.array([
         NH * S * DHQK,  # str_matQK_B_NH

@@ -205,7 +205,7 @@ class xLSTMRunner:
     def generate_next_token(
             self,
             input_ids: mx.array,
-            temperature: mx.array = mx.array(1.0 ,dtype= mx.float32),
+            temperature: mx.array = mx.array(1.0, dtype=mx.float32),
             top_k: Optional[mx.array] = None,
             top_p: Optional[mx.array] = None
     ) -> mx.array:
@@ -377,10 +377,10 @@ class xLSTMRunner:
         if not tokens and self.bos_token_id is not None:
             tokens = [int(self.bos_token_id)]
         elif (
-            tokens
-            and self.force_bos_token_insert
-            and self.bos_token_id is not None
-            and tokens[0] != int(self.bos_token_id)
+                tokens
+                and self.force_bos_token_insert
+                and self.bos_token_id is not None
+                and tokens[0] != int(self.bos_token_id)
         ):
             tokens = [int(self.bos_token_id)] + tokens
 

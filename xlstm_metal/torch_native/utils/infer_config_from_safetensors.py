@@ -9,7 +9,8 @@ from typing import Dict, Any, Optional, Tuple
 from safetensors import safe_open
 
 
-def _shape_of(tensor_name: str, index: Dict, shard_shapes: Dict[str, Dict[str, Tuple[int, ...]]]) -> Optional[Tuple[int, ...]]:
+def _shape_of(tensor_name: str, index: Dict, shard_shapes: Dict[str, Dict[str, Tuple[int, ...]]]) -> Optional[
+    Tuple[int, ...]]:
     if tensor_name in index["weight_map"]:
         shard_file = index["weight_map"][tensor_name]
         if shard_file in shard_shapes and tensor_name in shard_shapes[shard_file]:
@@ -57,7 +58,8 @@ def infer_config_from_safetensors(model_dir: str) -> Dict[str, Any]:
     if lm_head_shape != (vocab_size, d_model):
         raise ValueError("LM head shape mismatch with embeddings")
 
-    block_ids = {int(k.split('.')[2]) for k in index['weight_map'].keys() if k.startswith('backbone.blocks.') and k.split('.')[2].isdigit()}
+    block_ids = {int(k.split('.')[2]) for k in index['weight_map'].keys() if
+                 k.startswith('backbone.blocks.') and k.split('.')[2].isdigit()}
     if not block_ids:
         raise ValueError("No blocks found in checkpoint")
     num_blocks = max(block_ids) + 1
@@ -95,5 +97,6 @@ def infer_config_from_safetensors(model_dir: str) -> Dict[str, Any]:
         "output_logit_soft_cap": 30.0,
         "chunk_size": 64,
     }
+
 
 __all__ = ["infer_config_from_safetensors"]

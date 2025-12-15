@@ -9,14 +9,14 @@ Copied from `/Volumes/stuff/Projects/m2-bert-mlx/bert/src/mm_mlx/`
 ## Files
 
 - **metal_kernels.py**: Core Metal kernels
-  - Depthwise 3-tap convolution
-  - Complex multiplication (standard and double-double precision)
-  - Demonstrates proper mx.fast.metal_kernel usage patterns
+    - Depthwise 3-tap convolution
+    - Complex multiplication (standard and double-double precision)
+    - Demonstrates proper mx.fast.metal_kernel usage patterns
 
 - **metal_fft_conv_streamed.py**: FFT-based convolution kernels
-  - FFT kernel compilation
-  - Complex multiply in frequency domain
-  - IFFT with element-wise operations
+    - FFT kernel compilation
+    - Complex multiply in frequency domain
+    - IFFT with element-wise operations
 
 - **activations_mlx.py**: Activation function kernels
 
@@ -30,6 +30,7 @@ Copied from `/Volumes/stuff/Projects/m2-bert-mlx/bert/src/mm_mlx/`
 ## Usage for sLSTM
 
 These kernels provide reference implementations for:
+
 - Causal convolution (can adapt depthwise_conv_3tap)
 - Gate operations with numerical stability
 - Efficient parallel processing patterns

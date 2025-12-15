@@ -72,7 +72,8 @@ class GatedFFNCell(nn.Module):
         else:
             self._sparsity_mask = None
 
-    def forward(self, x: torch.Tensor, state: Optional[torch.Tensor] = None) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def forward(self, x: torch.Tensor, state: Optional[torch.Tensor] = None) -> tuple[
+        torch.Tensor, Optional[torch.Tensor]]:
         """
         Forward pass.
         

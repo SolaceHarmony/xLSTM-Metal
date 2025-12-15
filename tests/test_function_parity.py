@@ -36,13 +36,13 @@ mlstm_chunkwise_mlx = chunkwise_module.mlstm_chunkwise_mlx
 
 
 def run_chunkwise_reference(
-    q: mx.array,
-    k: mx.array,
-    v: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    chunk_size: int,
-    eps: float,
+        q: mx.array,
+        k: mx.array,
+        v: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        chunk_size: int,
+        eps: float,
 ):
     B, NH, S, _ = q.shape
     assert S % chunk_size == 0, "Reference chunkwise path expects full chunks"
@@ -57,6 +57,8 @@ def run_chunkwise_reference(
         return_last_states=True,
     )
     return h_ref, state_ref
+
+
 from xlstm_metal.mlx_jit.models.wired_xlstm import WiredxLSTM
 from xlstm_metal.mlx_jit.tokenizer import TokenizerBlock, TokenizerConfig
 from xlstm_metal.mlx_jit.utils.config_loader import load_safetensor_shards

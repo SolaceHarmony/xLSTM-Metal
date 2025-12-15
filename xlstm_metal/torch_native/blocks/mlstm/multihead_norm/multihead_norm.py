@@ -8,7 +8,9 @@ class MultiHeadLayerNorm(nn.Module):
     Input: [B, S, NH, DH] -> Normalize over DH per head -> flatten to [B, S, NH*DH].
     Weight/bias are flat of length NH*DH (matches HF xLSTM style).
     """
-    def __init__(self, num_heads: int, head_dim: int, eps: float = 1e-6, use_weight: bool = True, use_bias: bool = False):
+
+    def __init__(self, num_heads: int, head_dim: int, eps: float = 1e-6, use_weight: bool = True,
+                 use_bias: bool = False):
         super().__init__()
         self.num_heads = num_heads
         self.head_dim = head_dim
@@ -34,14 +36,15 @@ class MultiHeadLayerNorm(nn.Module):
         x_norm = (x - mean) / torch.sqrt(var + self.eps)
         x_flat = x_norm.view(B, S, -1)
         if self.weight is not None:
-            x_flat = x_flat * self.weight
+            x_flat *= self.weight
         if self.bias is not None:
-            x_flat = x_flat + self.bias
+            x_flat += self.bias
         return x_flat
 
 
 class MultiHeadRMSNorm(nn.Module):
     """Multi-head RMSNorm flatten heads after per-head RMS normalization."""
+
     def __init__(self, num_heads: int, head_dim: int, eps: float = 1e-6, use_weight: bool = True):
         super().__init__()
         self.num_heads = num_heads
@@ -60,7 +63,7 @@ class MultiHeadRMSNorm(nn.Module):
         x_norm = (x / rms).type_as(x)
         x_flat = x_norm.view(B, S, -1)
         if self.weight is not None:
-            x_flat = x_flat * self.weight
+            x_flat *= self.weight
         return x_flat
 
 

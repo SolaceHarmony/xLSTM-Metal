@@ -114,4 +114,5 @@ class Wiring:
             return 0
         return int(torch.sum(torch.abs(self.sensory_adjacency_matrix)).item())
 
+
 __all__ = ["Wiring"]

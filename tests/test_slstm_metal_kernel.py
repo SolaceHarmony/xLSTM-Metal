@@ -60,7 +60,7 @@ def slstm_step_reference(
     B, NH, H = z.shape
 
     eps_arr = mx.array(eps)
-    one = mx.array(1.0,)
+    one = mx.array(1.0, )
 
     # Expand m_state to match z shape for broadcasting
     m_exp = mx.expand_dims(m_state, axis=2)  # [B, NH, 1]

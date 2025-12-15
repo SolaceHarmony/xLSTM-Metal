@@ -189,6 +189,7 @@ class WiredxLSTM(nn.Module):
 
     def _load_weights_from_dict(self, weights_dict: Dict[str, torch.Tensor]):
         """Map safetensors weights to model parameters."""
+
         def _to_compute(t: torch.Tensor) -> torch.Tensor:
             return t.to(dtype=self.compute_dtype, device=self.device)
 

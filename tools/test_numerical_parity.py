@@ -17,6 +17,7 @@ Tolerance:
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 import numpy as np
@@ -93,10 +94,9 @@ def compare_tensors(mlx_tensor, torch_tensor, name, rtol=1e-5, atol=1e-6):
 
 def test_soft_cap():
     """Test soft-cap function parity."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 1: Soft-Cap Function")
-    print("="*60)
-
+    print("=" * 60)
 
     set_seed(42)
 
@@ -126,10 +126,9 @@ def test_soft_cap():
 
 def test_rmsnorm():
     """Test RMSNorm parity."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 2: RMSNorm")
-    print("="*60)
-
+    print("=" * 60)
 
     set_seed(42)
 
@@ -190,9 +189,9 @@ def test_rmsnorm():
 
 def test_embeddings():
     """Test embedding layer parity."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 3: Embeddings")
-    print("="*60)
+    print("=" * 60)
 
     set_seed(42)
 
@@ -240,9 +239,9 @@ def test_embeddings():
 
 def test_mlstm_block():
     """Test mLSTM block forward pass for numerical stability."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 4: mLSTM Block Forward Pass")
-    print("="*60)
+    print("=" * 60)
 
     set_seed(42)
 
@@ -285,15 +284,14 @@ def test_mlstm_block():
         else:
             print(f"  ✅ PASS")
 
-
     return all_pass
 
 
 def test_full_forward():
     """Test full model forward pass."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 5: Full Model Forward Pass")
-    print("="*60)
+    print("=" * 60)
 
     set_seed(42)
 
@@ -340,16 +338,15 @@ def test_full_forward():
                 print(f"  ⚠️ WARNING: Large logit range may indicate instability")
             print(f"  ✅ PASS")
 
-
     return all_pass
 
 
 def main():
     """Run all numerical parity tests."""
-    print("="*60)
+    print("=" * 60)
     print("NUMERICAL PARITY TEST SUITE")
     print("MLX Implementation vs Canonical Transformers")
-    print("="*60)
+    print("=" * 60)
 
     results = {}
 
@@ -361,21 +358,21 @@ def main():
     results['full_forward'] = test_full_forward()
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST SUMMARY")
-    print("="*60)
+    print("=" * 60)
 
     for test_name, passed in results.items():
         status = "✅ PASS" if passed else "❌ FAIL"
         print(f"{status} - {test_name}")
 
     all_passed = all(results.values())
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     if all_passed:
         print("🎉 ALL TESTS PASSED")
     else:
         print("⚠️ SOME TESTS FAILED - Review output above")
-    print("="*60)
+    print("=" * 60)
 
     return 0 if all_passed else 1
 

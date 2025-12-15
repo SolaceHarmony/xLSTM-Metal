@@ -2,32 +2,34 @@
 
 ## Overview
 
-Successfully implemented a numerically stable sLSTM Metal kernel that matches the canonical reference implementation from the xlstm package.
+Successfully implemented a numerically stable sLSTM Metal kernel that matches the canonical reference implementation
+from the xlstm package.
 
 ## Architecture
 
 ### Modular Cell Design (NCPS Pattern)
+
 ```
 Input → Projection Cell → Kernel Cell → Output Cell → Output
 ```
 
 1. **Projection Cell** (`slstm_projection_cell.py`)
-   - Optional Conv1d with SiLU activation
-   - Gate projections: i, f (from conv'd input), z, o (from raw input)
-   - Soft capping applied to gate pre-activations
+    - Optional Conv1d with SiLU activation
+    - Gate projections: i, f (from conv'd input), z, o (from raw input)
+    - Soft capping applied to gate pre-activations
 
 2. **Kernel Cell** (`slstm_stepwise_kernel.py`)
-   - Pure recurrence using Metal-accelerated kernels
-   - Single timestep processing
-   - Canonical sLSTM equations with numerical stability
+    - Pure recurrence using Metal-accelerated kernels
+    - Single timestep processing
+    - Canonical sLSTM equations with numerical stability
 
 3. **Output Cell** (`slstm_output_cell.py`)
-   - MultiHeadLayerNorm (group normalization)
-   - Output projection back to input space
+    - MultiHeadLayerNorm (group normalization)
+    - Output projection back to input space
 
 4. **Neuron** (`slstm_neuron.py`)
-   - Wires all cells together
-   - Handles sequential timestep processing
+    - Wires all cells together
+    - Handles sequential timestep processing
 
 ## Metal Kernel Implementation
 
@@ -76,6 +78,7 @@ Input → Projection Cell → Kernel Cell → Output Cell → Output
 ### Double-Double Precision Helpers
 
 For critical operations requiring extended precision:
+
 ```metal
 struct dd_t { float hi; float lo; };
 inline dd_t two_sum(float a, float b) { ... }
@@ -88,6 +91,7 @@ inline dd_t dd_add(dd_t a, dd_t b) { ... }
 ### The Problem
 
 Initial implementation used:
+
 ```python
 num_groups = mx.divide(mx.add(u32(total_heads), mx.subtract(tpg, one)), tpg)
 grid = (num_groups, one, one)
@@ -95,6 +99,7 @@ threadgroup = (tpg, one, one)
 ```
 
 This resulted in:
+
 - `num_groups` as float32 (1.01172) instead of uint32
 - Only thread 0 executing, all other threads idle
 - Multi-head processing completely broken
@@ -114,10 +119,12 @@ This launches 256 threads in one threadgroup. Threads 0 to (B*NH-1) do work, the
 ### Key Insight
 
 Unlike standard Metal dispatch where:
+
 - `grid` = number of threadgroups
 - `threadgroup` = threads per threadgroup
 
 MLX `mx.fast.metal_kernel` requires:
+
 - `grid` = `threadgroup` for single-threadgroup kernels
 - Both parameters specify the threadgroup size
 
@@ -163,6 +170,7 @@ Testing sequential recurrence...
 ## Files Created/Modified
 
 ### Created
+
 - `slstm_metal_kernel.py` - Metal kernel implementation
 - `slstm_stepwise_kernel.py` - Kernel cell wrapper
 - `typed.py` - Type helpers for Metal dispatch
@@ -173,6 +181,7 @@ Testing sequential recurrence...
 - `kernel_development/m2bert_metal_kernels/` - M2-BERT reference kernels
 
 ### Modified
+
 - Various `__init__.py` files for module exports
 
 ## Next Steps (Future Work)

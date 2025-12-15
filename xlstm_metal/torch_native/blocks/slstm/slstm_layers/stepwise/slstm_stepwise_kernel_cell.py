@@ -81,7 +81,7 @@ class sLSTMStepwiseKernelCell(nn.Module):
 
         # Stabilized gates
         m_new = torch.maximum(m_state + F.logsigmoid(f_preact), i_preact)
-        
+
         i_gate = torch.exp(i_preact - m_new)
         f_gate = torch.exp(m_state + F.logsigmoid(f_preact) - m_new)
         o_gate = torch.sigmoid(o_preact)

@@ -6,11 +6,13 @@ Direct comparison of our implementations against canonical fallback implementati
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 import numpy as np
 import mlx.core as mx
 import torch
+
 
 # Import THEIR canonical implementations directly from the file
 # We need to extract the functions manually to avoid import errors
@@ -21,6 +23,7 @@ def canonical_soft_cap(values: torch.Tensor, cap_value) -> torch.Tensor:
     if cap_value is None:
         return values
     return cap_value * torch.tanh(values / cap_value)
+
 
 # We'll add canonical_mlstm_step later if needed
 
@@ -63,9 +66,9 @@ def compare(ours_mlx, theirs_torch, name, rtol=1e-4, atol=1e-5):
 
 def test_soft_cap():
     """Test soft_cap: ours vs theirs."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST: soft_cap")
-    print("="*60)
+    print("=" * 60)
 
     test_cases = [
         ("zeros", np.zeros(10), 15.0),
@@ -92,9 +95,9 @@ def test_soft_cap():
 
 def test_rmsnorm():
     """Test RMSNorm: ours vs simple PyTorch implementation."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST: RMSNorm")
-    print("="*60)
+    print("=" * 60)
 
     dim = 512
     eps = 1e-6
@@ -174,9 +177,9 @@ def test_rmsnorm():
 
 def test_mlstm_recurrent_step():
     """Test mLSTM recurrent step: ours vs theirs."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST: mLSTM Recurrent Step (if we can match signatures)")
-    print("="*60)
+    print("=" * 60)
 
     # TODO: Match the signature of canonical_mlstm_step
     # This requires understanding the exact input/output format
@@ -186,9 +189,9 @@ def test_mlstm_recurrent_step():
 
 def main():
     """Run all parity tests."""
-    print("="*60)
+    print("=" * 60)
     print("NUMERICAL PARITY: Our MLX vs Canonical PyTorch")
-    print("="*60)
+    print("=" * 60)
 
     results = {
         'soft_cap': test_soft_cap(),
@@ -196,9 +199,9 @@ def main():
         'mlstm_step': test_mlstm_recurrent_step(),
     }
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SUMMARY")
-    print("="*60)
+    print("=" * 60)
     for name, passed in results.items():
         print(f"{'✅' if passed else '❌'} {name}")
 
