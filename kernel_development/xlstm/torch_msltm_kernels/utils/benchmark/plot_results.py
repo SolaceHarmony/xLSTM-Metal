@@ -27,29 +27,6 @@ from .plot_config import (
 fontsize_delta = 0
 
 
-def rc_context_wrapper(func: Callable, **kwargs):
-    """
-
-    :param func:
-    :param kwargs:
-    :return:
-    """
-    with mpl.rc_context(
-            rc={
-                "text.usetex": False,
-                "font.size": FONTSIZE + fontsize_delta,
-                "axes.labelsize": FONTSIZE + fontsize_delta,
-                "legend.fontsize": FONTSIZE_SMALL + fontsize_delta,
-                "xtick.labelsize": FONTSIZE_TICKS + fontsize_delta,
-                "ytick.labelsize": FONTSIZE_TICKS + fontsize_delta,
-                "axes.titlesize": FONTSIZE + fontsize_delta,
-                "lines.markersize": MARKERSIZE,
-                "lines.linewidth": LINEWIDTH,
-            }
-    ):
-        return func(**kwargs)
-
-
 def savefig(fig, filename: str):
     """
 
@@ -67,6 +44,40 @@ def savefig(fig, filename: str):
                 dpi=300,
                 bbox_inches="tight",
             )
+
+
+def plot_kernel_performance(
+        result_df: pd.DataFrame,
+        title: str = "Kernel Performance",
+        filename: str = "kernel_performance",
+):
+    """Plots the performance of different kernels across sequence lengths.
+
+    Args:
+        result_df: DataFrame with benchmark results. Must contain 'sequence_length', 'kernel', and 'time' columns.
+        title: Title of the plot.
+        filename: Filename for saving the plot.
+    """
+    plt.style.use("seaborn-v0_8-whitegrid")
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    for kernel in result_df["kernel"].unique():
+        kernel_df = result_df[result_df["kernel"] == kernel]
+        ax.plot(
+            kernel_df["sequence_length"],
+            kernel_df["time"],
+            marker="o",
+            linestyle="-",
+            label=kernel,
+        )
+
+    ax.set_xlabel("Sequence Length")
+    ax.set_ylabel("Time [ms]")
+    ax.set_title(title)
+    ax.legend()
+    ax.set_yscale("log")
+    savefig(fig, filename)
+    return fig
 
 
 def plot_benchmark_result_table(
@@ -190,7 +201,7 @@ def plot_benchmark_result_table(
         ax.legend(**legend_args)
     ax.grid(alpha=grid_alpha)
 
-    def savefig(file_ending):
+    def savefig_local(file_ending):
         """
 
         :param file_ending:
@@ -206,7 +217,7 @@ def plot_benchmark_result_table(
 
     if filename is not None:
         for file_ending in ["png", "pdf", "svg"]:
-            savefig(file_ending)
+            savefig_local(file_ending)
 
     return f
 
@@ -591,101 +602,71 @@ def plot_runtime_results(
         return f
 
 
-def plot_runtime_results_fwbw(
-        df_left: pd.DataFrame,
-        df_right: pd.DataFrame,
-        col_order_left: list[str] = None,
-        col_order_right: list[str] = None,
-        yticks_left=None,
-        yticks_right=None,
-        group_cols=None,
+def plot_benchmark_grids(
+        *data_frames: pd.DataFrame,
+        titles: list[str] = None,
+        col_orders: list[list[str]] = None,
+        group_cols: list[str] = None,
         filename_wo_ending: str = "",
         style_dict: dict[str, Any] = None,
         legend_args=None,
-        modify_df_func=None,
         plot_type: Literal["line", "bar"] = "bar",
-        ylim_left: tuple[float, float] | None = None,
-        ylim_right: tuple[float, float] | None = None,
-        fillna_exclude_cols_left: list[str] = None,
-        fillna_exclude_cols_right: list[str] = None,
+        ylims: list[tuple[float, float]] = None,
         x_label: str = "Sequence Length",
         add_colname: bool = True,
 ) -> Figure:
-    """Similar to `plot_runtime_results`, but plots two figures side by side.
-    
+    """Plots multiple benchmark results in a grid.
+
     Args:
-        df_left: DataFrame with the data to plot on the left side.
-        df_right: DataFrame with the data to plot on the right side.
-        col_order_left: Order of the columns to plot on the left side. Defaults to None.
-        col_order_right: Order of the columns to plot on the right side. Defaults to None.
-        yticks_left: Y-ticks for the left side. Defaults to [].
-        yticks_right: Y-ticks for the right side. Defaults to [].
-        group_cols: List of column names to group the bars by. Defaults to [].
-        filename_wo_ending: Filename for saving the plot. Defaults to "".
-        style_dict: Style dictionary for the plot. Defaults to None.
-        legend_args: Legend arguments. Defaults to dict(loc="lower center", ncol=3, bbox_to_anchor=(0.0, 0.97, 1.0, 0.102), frameon=False, facecolor="white").
-        modify_df_func: Function to modify the dataframes before plotting. Defaults to None.
-        plot_type: Type of the plot. Defaults to "bar".
-        ylim_left: Y-limits for the left side. Defaults to None.
-        ylim_right: Y-limits for the right side. Defaults to None.
-        fillna_exclude_cols_left: Columns to exclude from fillna on the left side. Defaults to None.
-        fillna_exclude_cols_right: Columns to exclude from fillna on the right side. Defaults to None.
-        x_label: Label for the x-axis. Defaults to "Sequence Length".
-        add_colname: If True, the column name is added to the group names. Defaults to True.
+        *data_frames: A variable number of DataFrames to plot.
+        titles: A list of titles for each plot.
+        col_orders: A list of column orders for each plot.
+        group_cols: List of column names to group the bars by.
+        filename_wo_ending: Filename for saving the plot.
+        style_dict: Style dictionary for the plot.
+        legend_args: Legend arguments.
+        plot_type: Type of the plot.
+        ylims: A list of y-limits for each plot.
+        x_label: Label for the x-axis.
+        add_colname: If True, the column name is added to the group names.
 
     Returns:
-        The figure object.    
+        The figure object.
     """
-
-    if yticks_left is None:
-        yticks_left = []
-    if yticks_right is None:
-        yticks_right = []
-    if group_cols is None:
-        group_cols = []
-    if legend_args is None:
-        legend_args = {
-            "loc": "lower center",
-            "ncol": 3,
-            "bbox_to_anchor": (0.0, 0.97, 1.0, 0.102),
-            "frameon": False,
-            "facecolor": "white",
-        }
-    f, (ax_left, ax_right) = plt.subplots(
-        1, 2, figsize=FIGSIZE_2COL, gridspec_kw=GRIDSPEC_KWARGS
+    n_plots = len(data_frames)
+    n_cols = 2
+    n_rows = (n_plots + 1) // n_cols
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(FIGSIZE_2COL[0], FIGSIZE_2COL[1] * n_rows)
     )
+    axes = axes.flatten()
 
-    if modify_df_func is not None:
-        df_left = modify_df_func(df_left)
-        df_right = modify_df_func(df_right)
+    for i, df in enumerate(data_frames):
+        ax = axes[i]
+        title = titles[i] if titles else None
+        col_order = col_orders[i] if col_orders else None
+        ylim = ylims[i] if ylims else None
 
-    f = plot_runtime_results(
-        data_df=df_left,
-        group_cols=group_cols,
-        yticks=yticks_left,
-        plot_column_order=col_order_left,
-        legend_args=legend_args,
-        style_dict=style_dict,
-        fillna_exclude_cols=fillna_exclude_cols_left,
-        ax=ax_left,
-        plot_type=plot_type,
-        ylim=ylim_left,
-        x_label=x_label,
-        add_colname=add_colname,
-    )
-    f = plot_runtime_results(
-        data_df=df_right,
-        group_cols=group_cols,
-        yticks=yticks_right,
-        plot_column_order=col_order_right,
-        legend_args=legend_args,
-        style_dict=style_dict,
-        fillna_exclude_cols=fillna_exclude_cols_right,
-        plot_type=plot_type,
-        ylim=ylim_right,
-        ax=ax_right,
-        x_label=x_label,
-        add_colname=add_colname,
-    )
-    savefig(f, filename=filename_wo_ending)
-    return f
+        plot_runtime_results(
+            data_df=df,
+            group_cols=group_cols,
+            yticks=[],
+            plot_column_order=col_order,
+            legend_args=legend_args,
+            style_dict=style_dict,
+            ax=ax,
+            plot_type=plot_type,
+            ylim=ylim,
+            x_label=x_label,
+            add_colname=add_colname,
+        )
+        if title:
+            ax.set_title(title)
+
+    for i in range(n_plots, len(axes)):
+        fig.delaxes(axes[i])
+
+    if filename_wo_ending:
+        savefig(fig, filename_wo_ending)
+
+    return fig

@@ -14,7 +14,7 @@ from omegaconf import OmegaConf
 
 from .benchmarks.interface import BenchmarkCreator, ModelBenchmarkCreator
 from .param_handling import BenchmarkConfig
-from .plot_results import plot_benchmark_result_table
+from .plot_results import plot_benchmark_result_table, plot_kernel_performance
 
 LOGGER = logging.getLogger(__name__)
 
@@ -173,7 +173,7 @@ def run_and_record_benchmarks(
     LOGGER.info(f"Running benchmark: {benchmark_config.benchmark_name}")
 
     benchmark_folder = output_folder / benchmark_config.benchmark_name
-    benchmark_folder.mkdir(parents=True)
+    benchmark_folder.mkdir(parents=True, exist_ok=True)
 
     OmegaConf.save(
         OmegaConf.create(asdict(benchmark_config)), benchmark_folder / "config.yaml"
@@ -199,6 +199,28 @@ def run_and_record_benchmarks(
     )
     LOGGER.info(f"Saving results to {benchmark_folder}")
     result_df.to_csv(benchmark_folder / "results.csv")
+
+    # Create a long-form dataframe for kernel performance plot
+    id_vars = [c for c in result_df.columns if c.startswith("P--")]
+    value_vars = [c for c in result_df.columns if c.startswith("R--")]
+    long_df = pd.melt(
+        result_df,
+        id_vars=id_vars,
+        value_vars=value_vars,
+        var_name="kernel",
+        value_name="time",
+    )
+    long_df["kernel"] = long_df["kernel"].str.replace("R--", "")
+    long_df.rename(
+        columns={f"P--{benchmark_config.x_axis_param}": "sequence_length"},
+        inplace=True,
+    )
+
+    plot_kernel_performance(
+        long_df,
+        title=f"Kernel Performance -- {benchmark_config.get_plot_title()}",
+        filename=f"{benchmark_config.benchmark_name}_kernel_performance",
+    )
 
     def plot_result_table(
             additional_exclude_col_regex: str, plot_name_suffix: str, y_label: str
